@@ -1,0 +1,108 @@
+{% extends "shop/admin_panel/base_admin.html" %}
+{% block title %}Admin — Products{% endblock %}
+
+{% block admin_content %}
+<div class="admin-content-header">
+  <h1 class="admin-page-title">Products</h1>
+  <a href="{% url 'shop:admin_product_edit' 0 %}" class="btn btn-primary" style="display:none">+ Add Product</a>
+</div>
+
+<!-- Filters -->
+<form method="get" class="admin-filter-bar" aria-label="Filter products">
+  <input type="search" name="q" class="form-control" placeholder="Search products…" value="{{ query }}" style="max-width:280px" aria-label="Search">
+  <select name="status" class="form-control" style="width:auto" onchange="this.form.submit()" aria-label="Filter by status">
+    <option value="">All Status</option>
+    <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending Approval</option>
+    <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+    <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+  </select>
+  <button type="submit" class="btn btn-ghost btn-sm">Filter</button>
+  {% if query or status_filter %}<a href="{% url 'shop:admin_products' %}" class="btn btn-ghost btn-sm">Clear</a>{% endif %}
+</form>
+
+<div class="card" style="padding:0;overflow:hidden;margin-top:1rem">
+  <div style="overflow-x:auto">
+    <table class="admin-table" role="table" aria-label="All products">
+      <thead>
+        <tr>
+          <th scope="col">Product</th>
+          <th scope="col">Category</th>
+          <th scope="col">Price</th>
+          <th scope="col">Stock</th>
+          <th scope="col">Retailer</th>
+          <th scope="col">Status</th>
+          <th scope="col"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for product in products %}
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:.75rem">
+              {% if product.image %}
+                <img src="{{ product.image.url }}" alt="{{ product.name }}" style="width:44px;height:44px;object-fit:cover;border-radius:var(--radius-sm)" loading="lazy">
+              {% else %}
+                <div style="width:44px;height:44px;background:var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center" aria-hidden="true">📦</div>
+              {% endif %}
+              <div>
+                <div style="font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ product.name }}</div>
+                <div style="font-size:.75rem;color:var(--text-light)">{{ product.sku }}</div>
+              </div>
+            </div>
+          </td>
+          <td>{{ product.category.name }}</td>
+          <td>
+            {% if product.is_on_sale %}<span style="color:var(--error);font-weight:700">${{ product.sale_price }}</span><br><span style="text-decoration:line-through;color:var(--text-light);font-size:.8rem">${{ product.price }}</span>
+            {% else %}<strong>${{ product.price }}</strong>{% endif %}
+          </td>
+          <td><span style="color:{% if product.stock > 10 %}var(--success){% elif product.stock > 0 %}var(--warning){% else %}var(--error){% endif %};font-weight:600">{{ product.stock }}</span></td>
+          <td>{% if product.retailer %}{{ product.retailer.get_full_name|default:product.retailer.username }}{% else %}<span style="color:var(--text-light)">TrendMart</span>{% endif %}</td>
+          <td>
+            {% if not product.is_approved %}
+              <span class="status-badge" style="background:#FEF3C7;color:#92400E">Pending</span>
+            {% elif product.is_active %}
+              <span class="status-badge status-delivered">Active</span>
+            {% else %}
+              <span class="status-badge status-cancelled">Inactive</span>
+            {% endif %}
+          </td>
+          <td>
+            <div style="display:flex;gap:.375rem;flex-wrap:wrap">
+              {% if not product.is_approved %}
+                <a href="{% url 'shop:admin_product_approve' product.pk %}" class="btn btn-sm" style="background:var(--success);color:#fff;white-space:nowrap">Approve</a>
+              {% endif %}
+              <a href="{% url 'shop:admin_product_edit' product.pk %}" class="btn btn-ghost btn-sm">Edit</a>
+              <form method="post" action="{% url 'shop:admin_product_delete' product.pk %}" onsubmit="return confirm('Delete this product?')">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm" style="background:var(--error);color:#fff">Del</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-light)">No products found</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Pagination -->
+{% if products.has_other_pages %}
+<nav class="pagination" style="margin-top:1rem" aria-label="Products pagination">
+  {% if products.has_previous %}
+    <a href="?page={{ products.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-btn">‹</a>
+  {% endif %}
+  {% for n in products.paginator.page_range %}
+    {% if n == products.number %}
+      <span class="page-btn active" aria-current="page">{{ n }}</span>
+    {% elif n >= products.number|add:"-2" and n <= products.number|add:"2" %}
+      <a href="?page={{ n }}{% if query %}&q={{ query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-btn">{{ n }}</a>
+    {% endif %}
+  {% endfor %}
+  {% if products.has_next %}
+    <a href="?page={{ products.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-btn">›</a>
+  {% endif %}
+</nav>
+{% endif %}
+{% endblock %}

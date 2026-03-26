@@ -1,0 +1,77 @@
+<article class="product-card" role="listitem">
+  <div class="product-card-image">
+    <a href="{{ product.get_absolute_url }}" aria-label="View {{ product.name }}">
+      {% if product.image %}
+        <img src="{{ product.image.url }}" alt="{{ product.name }}" loading="lazy">
+      {% else %}
+        <img src="https://placehold.co/400x300/e2d9f3/7C3AED?text={{ product.name|urlencode }}" alt="{{ product.name }}">
+      {% endif %}
+    </a>
+    {% if product.is_on_sale %}
+      <span class="product-badge badge-sale" aria-label="{{ product.get_discount_percentage }}% off">-{{ product.get_discount_percentage }}%</span>
+    {% elif product.is_featured %}
+      <span class="product-badge badge-featured">Featured</span>
+    {% endif %}
+    {% if not product.is_in_stock %}
+      <span class="product-badge badge-out" style="top:auto;bottom:.75rem;left:.75rem">Out of Stock</span>
+    {% endif %}
+    {% if user.is_authenticated %}
+    <form method="post" action="{% url 'shop:toggle_wishlist' %}" class="wishlist-form" style="display:contents">
+      {% csrf_token %}
+      <input type="hidden" name="product_id" value="{{ product.id }}">
+      <button type="submit" class="wishlist-btn wishlist-toggle-btn" data-product-id="{{ product.id }}"
+              aria-label="{% if product.id in wishlist_ids %}Remove from wishlist{% else %}Add to wishlist{% endif %}"
+              aria-pressed="{% if product.id in wishlist_ids %}true{% else %}false{% endif %}">
+        <svg viewBox="0 0 24 24" fill="{% if product.id in wishlist_ids %}currentColor{% else %}none{% endif %}" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 000-7.78z"/>
+        </svg>
+      </button>
+    </form>
+    {% endif %}
+  </div>
+  <div class="product-card-body">
+    <div class="product-card-category">{{ product.category.name }}</div>
+    <h3 class="product-card-name">
+      <a href="{{ product.get_absolute_url }}">{{ product.name }}</a>
+    </h3>
+    {% if product.brand %}
+      <div class="product-card-brand">{{ product.brand.name }}</div>
+    {% endif %}
+    <div class="rating-summary" aria-label="{{ product.get_avg_rating }} out of 5 stars, {{ product.get_rating_count }} reviews">
+      <div class="stars" aria-hidden="true">
+        {% with avg=product.get_avg_rating %}
+        {% for i in "12345" %}
+          <span class="star {% if forloop.counter <= avg %}filled{% endif %}">★</span>
+        {% endfor %}
+        {% endwith %}
+      </div>
+      <span class="rating-count">({{ product.get_rating_count }})</span>
+    </div>
+    <div class="product-card-price">
+      {% if product.is_on_sale %}
+        <span class="price-current on-sale" aria-label="Sale price">${{ product.sale_price }}</span>
+        <span class="price-original" aria-label="Original price">${{ product.price }}</span>
+      {% else %}
+        <span class="price-current" aria-label="Price">${{ product.price }}</span>
+      {% endif %}
+    </div>
+    <div class="product-card-footer">
+      {% if product.is_in_stock %}
+      <form class="add-to-cart-form" action="{% url 'shop:add_to_cart' %}" method="post" aria-label="Add {{ product.name }} to cart">
+        {% csrf_token %}
+        <input type="hidden" name="product_id" value="{{ product.id }}">
+        <input type="hidden" name="quantity" value="1">
+        <button type="submit" class="btn btn-primary btn-sm" style="width:100%">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+          Add to Cart
+        </button>
+      </form>
+      {% else %}
+        <button class="btn btn-secondary btn-sm" style="width:100%" disabled aria-disabled="true">Out of Stock</button>
+      {% endif %}
+      <a href="{{ product.get_absolute_url }}" class="btn btn-ghost btn-icon" aria-label="View {{ product.name }} details">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </a>
+    </div>
+  </div>
+</article>

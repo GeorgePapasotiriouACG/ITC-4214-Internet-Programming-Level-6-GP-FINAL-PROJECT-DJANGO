@@ -1,0 +1,74 @@
+{% extends "shop/base.html" %}
+{% block title %}Order Confirmed — #{{ order.order_number }}{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top:3rem;padding-bottom:4rem;max-width:700px">
+
+  <div class="order-success-card" role="main">
+    <div class="success-icon" aria-hidden="true">✅</div>
+    <h1 class="success-title">Order Confirmed!</h1>
+    <p class="success-subtitle">Thank you for your order. We'll get it ready for you soon.</p>
+    <div class="order-number-display">Order #{{ order.order_number }}</div>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem">
+    <h2 class="card-title">Order Details</h2>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem">
+      <div>
+        <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-light);font-weight:600">Placed</div>
+        <div style="font-weight:600">{{ order.created_at|date:"N j, Y, g:i a" }}</div>
+      </div>
+      <div>
+        <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-light);font-weight:600">Status</div>
+        <div><span class="status-badge status-{{ order.status }}">{{ order.get_status_display }}</span></div>
+      </div>
+      <div>
+        <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-light);font-weight:600">Ship To</div>
+        <div style="font-weight:600">{{ order.full_name }}</div>
+        <div style="font-size:.875rem;color:var(--text-light)">{{ order.address }}{% if order.city %}, {{ order.city }}{% endif %}{% if order.country %}, {{ order.country }}{% endif %}</div>
+      </div>
+      <div>
+        <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-light);font-weight:600">Total</div>
+        <div style="font-weight:800;font-size:1.25rem;color:var(--primary)">${{ order.total_amount }}</div>
+      </div>
+    </div>
+
+    <table class="order-table" role="table" aria-label="Order items">
+      <thead>
+        <tr>
+          <th scope="col">Product</th>
+          <th scope="col" style="text-align:center">Qty</th>
+          <th scope="col" style="text-align:right">Price</th>
+          <th scope="col" style="text-align:right">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in order.items.all %}
+        <tr>
+          <td>
+            <div style="font-weight:600">{{ item.product_name }}</div>
+            {% if item.size %}<div style="font-size:.75rem;color:var(--text-light)">Size: {{ item.size }}</div>{% endif %}
+          </td>
+          <td style="text-align:center">{{ item.quantity }}</td>
+          <td style="text-align:right">${{ item.product_price }}</td>
+          <td style="text-align:right;font-weight:700">${{ item.get_subtotal }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="3" style="text-align:right;font-weight:700;padding-top:.75rem">Total</td>
+          <td style="text-align:right;font-weight:800;color:var(--primary);padding-top:.75rem">${{ order.total_amount }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:1.5rem;justify-content:center">
+    <a href="{% url 'shop:order_list' %}" class="btn btn-primary">View All Orders</a>
+    <a href="{% url 'shop:product_list' %}" class="btn btn-ghost">Continue Shopping</a>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,27 +1,192 @@
-{% extends "base.html" %}
+{% extends "shop/base.html" %}
+{% block title %}{% if query %}Search: {{ query }}{% elif selected_category %}{{ selected_category.name }}{% else %}All Products{% endif %}{% endblock %}
 
 {% block content %}
+<div class="container" style="padding-top:1.5rem;padding-bottom:3rem">
 
-<h1>Products</h1>
+  <!-- Breadcrumb -->
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="{% url 'shop:home' %}">Home</a>
+    <span class="breadcrumb-sep" aria-hidden="true">/</span>
+    {% if selected_category %}
+      <a href="{% url 'shop:product_list' %}">Products</a>
+      <span class="breadcrumb-sep" aria-hidden="true">/</span>
+      <span class="breadcrumb-current">{{ selected_category.name }}</span>
+    {% else %}
+      <span class="breadcrumb-current">All Products</span>
+    {% endif %}
+  </nav>
 
-<div class="products">
+  <div class="products-layout">
+    <!-- Filters Sidebar -->
+    <aside class="filters-sidebar" aria-label="Product filters">
+      <form method="get" id="filter-form" aria-label="Filter products">
+        {% if query %}<input type="hidden" name="q" value="{{ query }}">{% endif %}
 
-{% for product in products %}
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+          <h2 style="font-size:1rem;font-weight:800">Filters</h2>
+          <a href="{% url 'shop:product_list' %}{% if query %}?q={{ query }}{% endif %}" class="text-sm text-primary">Clear all</a>
+        </div>
 
-<div class="card">
+        <!-- Category -->
+        <div class="filter-group">
+          <div class="filter-title" tabindex="0" role="button" aria-expanded="true">
+            Category
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="filter-body">
+            {% for cat in categories %}
+              {% if not cat.parent %}
+              <div class="filter-check">
+                <input type="radio" name="category" id="cat-{{ cat.slug }}" value="{{ cat.slug }}"
+                       {% if selected_category_slug == cat.slug %}checked{% endif %}
+                       onchange="this.form.submit()">
+                <label for="cat-{{ cat.slug }}">{{ cat.name }}
+                  {% if cat.icon %}<span aria-hidden="true">{{ cat.icon }}</span>{% endif %}
+                </label>
+              </div>
+              {% for sub in cat.children.all %}
+              <div class="filter-check" style="padding-left:1rem">
+                <input type="radio" name="category" id="cat-{{ sub.slug }}" value="{{ sub.slug }}"
+                       {% if selected_category_slug == sub.slug %}checked{% endif %}
+                       onchange="this.form.submit()">
+                <label for="cat-{{ sub.slug }}">↳ {{ sub.name }}</label>
+              </div>
+              {% endfor %}
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
 
-<img src="{{ product.image }}">
+        <!-- Brand -->
+        {% if brands %}
+        <div class="filter-group">
+          <div class="filter-title" tabindex="0" role="button" aria-expanded="true">
+            Brand
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="filter-body">
+            {% for brand in brands %}
+            <div class="filter-check">
+              <input type="radio" name="brand" id="brand-{{ brand.slug }}" value="{{ brand.slug }}"
+                     {% if selected_brand == brand.slug %}checked{% endif %}
+                     onchange="this.form.submit()">
+              <label for="brand-{{ brand.slug }}">{{ brand.name }}</label>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
 
-<h3>{{ product.name }}</h3>
+        <!-- Price Range -->
+        <div class="filter-group">
+          <div class="filter-title" tabindex="0" role="button" aria-expanded="true">
+            Price Range
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="filter-body">
+            <div class="price-range">
+              <input type="number" name="min_price" class="form-control" placeholder="Min $" value="{{ min_price }}" min="0" aria-label="Minimum price">
+              <span aria-hidden="true">–</span>
+              <input type="number" name="max_price" class="form-control" placeholder="Max $" value="{{ max_price }}" min="0" aria-label="Maximum price">
+            </div>
+          </div>
+        </div>
 
-<p>{{ product.price }} €</p>
+        <!-- Color -->
+        {% if all_colors %}
+        <div class="filter-group">
+          <div class="filter-title" tabindex="0" role="button" aria-expanded="true">
+            Color
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="filter-body">
+            {% for color in all_colors %}
+            <div class="filter-check">
+              <input type="radio" name="color" id="color-{{ color|slugify }}" value="{{ color }}"
+                     {% if selected_color == color %}checked{% endif %}
+                     onchange="this.form.submit()">
+              <label for="color-{{ color|slugify }}">{{ color }}</label>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
 
-<a href="/product/{{product.id}}/">View</a>
+        <div class="filter-actions">
+          <button type="submit" class="btn btn-primary btn-sm btn-block">Apply Filters</button>
+        </div>
+      </form>
+    </aside>
 
+    <!-- Product Results -->
+    <div>
+      <!-- Toolbar -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:.75rem">
+        <div>
+          <span style="font-weight:700;color:var(--dark)">{{ total_count }}</span>
+          <span style="color:var(--text-light)"> product{{ total_count|pluralize }} found</span>
+          {% if query %} for "<strong>{{ query }}</strong>"{% endif %}
+          {% if selected_category %} in <strong>{{ selected_category.name }}</strong>{% endif %}
+        </div>
+        <div style="display:flex;align-items:center;gap:.75rem">
+          <label for="sort-select" class="text-sm" style="color:var(--text-light)">Sort by:</label>
+          <select id="sort-select" class="form-control" style="width:auto;padding:.375rem .875rem"
+                  onchange="window.location.href=updateQueryParam('sort',this.value)">
+            <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest</option>
+            <option value="price_asc" {% if sort == 'price_asc' %}selected{% endif %}>Price: Low to High</option>
+            <option value="price_desc" {% if sort == 'price_desc' %}selected{% endif %}>Price: High to Low</option>
+            <option value="popular" {% if sort == 'popular' %}selected{% endif %}>Most Popular</option>
+          </select>
+        </div>
+      </div>
+
+      {% if products %}
+        <div class="product-grid" role="list" aria-label="Product results">
+          {% for product in products %}
+          {% include "shop/includes/product_card.html" with product=product %}
+          {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if products.has_other_pages %}
+        <nav class="pagination" aria-label="Page navigation">
+          {% if products.has_previous %}
+            <a href="?{% url_replace request 'page' products.previous_page_number %}" class="page-btn" aria-label="Previous page">‹</a>
+          {% endif %}
+          {% for n in products.paginator.page_range %}
+            {% if n == products.number %}
+              <span class="page-btn active" aria-current="page" aria-label="Page {{ n }}">{{ n }}</span>
+            {% elif n >= products.number|add:"-2" and n <= products.number|add:"2" %}
+              <a href="?{% url_replace request 'page' n %}" class="page-btn" aria-label="Page {{ n }}">{{ n }}</a>
+            {% endif %}
+          {% endfor %}
+          {% if products.has_next %}
+            <a href="?{% url_replace request 'page' products.next_page_number %}" class="page-btn" aria-label="Next page">›</a>
+          {% endif %}
+        </nav>
+        {% endif %}
+
+      {% else %}
+        <div class="empty-state" role="status">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <h3>No products found</h3>
+          <p>Try adjusting your filters or search terms.</p>
+          <a href="{% url 'shop:product_list' %}" class="btn btn-primary mt-4">Clear Filters</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
 </div>
+{% endblock %}
 
-{% endfor %}
-
-</div>
-
+{% block extra_js %}
+<script>
+function updateQueryParam(key, value) {
+  const url = new URL(window.location);
+  url.searchParams.set(key, value);
+  url.searchParams.delete('page');
+  return url.pathname + url.search;
+}
+</script>
 {% endblock %}

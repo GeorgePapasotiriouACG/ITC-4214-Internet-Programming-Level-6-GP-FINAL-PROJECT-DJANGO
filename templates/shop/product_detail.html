@@ -1,23 +1,281 @@
-{% extends "base.html" %}
+{% extends "shop/base.html" %}
+{% block title %}{{ product.name }}{% endblock %}
 
 {% block content %}
+<div class="container" style="padding-top:1.5rem;padding-bottom:3rem">
 
-<div class="product-page">
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="{% url 'shop:home' %}">Home</a><span class="breadcrumb-sep" aria-hidden="true">/</span>
+    <a href="{% url 'shop:product_list' %}">Products</a><span class="breadcrumb-sep" aria-hidden="true">/</span>
+    <a href="{% url 'shop:category' product.category.slug %}">{{ product.category.name }}</a><span class="breadcrumb-sep" aria-hidden="true">/</span>
+    <span class="breadcrumb-current">{{ product.name }}</span>
+  </nav>
 
-<img src="{{ product.image }}">
+  <div class="product-detail-layout">
+    <!-- Image -->
+    <div>
+      <div class="product-main-image">
+        {% if product.image %}
+          <img src="{{ product.image.url }}" alt="{{ product.name }}" loading="eager">
+        {% else %}
+          <img src="https://placehold.co/600x600/e2d9f3/7C3AED?text={{ product.name|urlencode }}" alt="{{ product.name }}">
+        {% endif %}
+      </div>
+      {% if product.images.all %}
+      <div style="display:flex;gap:.5rem;margin-top:.75rem;flex-wrap:wrap" role="list" aria-label="Additional product images">
+        {% for img in product.images.all %}
+        <img src="{{ img.image.url }}" alt="{{ img.alt_text|default:product.name }}" role="listitem"
+             style="width:72px;height:72px;object-fit:cover;border-radius:var(--radius-sm);border:2px solid var(--border);cursor:pointer"
+             loading="lazy">
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
 
-<div>
+    <!-- Info -->
+    <div>
+      <div class="product-card-category">{{ product.category.name }}{% if product.brand %} &middot; {{ product.brand.name }}{% endif %}</div>
+      <h1 class="product-detail-title">{{ product.name }}</h1>
 
-<h1>{{ product.name }}</h1>
+      <div class="rating-summary" aria-label="{{ product.get_avg_rating }} out of 5, {{ product.get_rating_count }} reviews">
+        <div class="stars" aria-hidden="true">
+          {% with avg=product.get_avg_rating %}
+          {% for i in "12345" %}
+            <span class="star {% if forloop.counter <= avg %}filled{% endif %}">★</span>
+          {% endfor %}
+          {% endwith %}
+        </div>
+        <span class="avg-rating-display font-bold">{{ product.get_avg_rating }}</span>
+        <span class="rating-count-display text-muted">({{ product.get_rating_count }} review{{ product.get_rating_count|pluralize }})</span>
+        <a href="#reviews" class="text-primary text-sm">See reviews</a>
+      </div>
 
-<p>{{ product.description }}</p>
+      <div class="product-detail-price">
+        {% if product.is_on_sale %}
+          <span class="price-current on-sale" aria-label="Sale price: ${{ product.sale_price }}">${{ product.sale_price }}</span>
+          <span class="price-original" aria-label="Original price: ${{ product.price }}">${{ product.price }}</span>
+          <span class="product-badge badge-sale">-{{ product.get_discount_percentage }}%</span>
+        {% else %}
+          <span class="price-current" aria-label="Price: ${{ product.price }}">${{ product.price }}</span>
+        {% endif %}
+      </div>
 
-<h2>{{ product.price }} €</h2>
+      {% if product.short_description %}
+        <p style="color:var(--text-light);margin-bottom:1rem;line-height:1.7">{{ product.short_description }}</p>
+      {% endif %}
 
-<a class="btn" href="/add/{{product.id}}/">Add to Cart</a>
+      <!-- SKU & Stock -->
+      <div style="display:flex;gap:1.5rem;margin-bottom:1rem;font-size:.875rem">
+        <div><span style="color:var(--text-light)">SKU:</span> <strong>{{ product.sku }}</strong></div>
+        <div>
+          <span style="color:var(--text-light)">Stock:</span>
+          {% if product.is_in_stock %}
+            <strong style="color:var(--success)">{{ product.stock }} available</strong>
+          {% else %}
+            <strong style="color:var(--error)">Out of Stock</strong>
+          {% endif %}
+        </div>
+        {% if product.color %}
+          <div><span style="color:var(--text-light)">Color:</span> <strong>{{ product.color }}</strong></div>
+        {% endif %}
+      </div>
+
+      <!-- Size Selector -->
+      {% with sizes=product.get_sizes_list %}
+      {% if sizes %}
+      <div style="margin-bottom:1.25rem">
+        <div style="font-size:.875rem;font-weight:700;margin-bottom:.5rem" id="size-label">Select Size</div>
+        <div class="size-selector" role="group" aria-labelledby="size-label">
+          {% for size in sizes %}
+          <button type="button" class="size-btn {% if forloop.first %}selected{% endif %}" data-size="{{ size }}">{{ size }}</button>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {% endwith %}
+
+      <!-- Add to Cart -->
+      {% if product.is_in_stock %}
+      <form class="add-to-cart-form product-actions" action="{% url 'shop:add_to_cart' %}" method="post" aria-label="Add to cart">
+        {% csrf_token %}
+        <input type="hidden" name="product_id" value="{{ product.id }}">
+        <input type="hidden" name="size" id="selected-size" value="{{ product.get_sizes_list|first }}">
+        <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:1rem">
+          <label for="qty-input" class="sr-only">Quantity</label>
+          <div class="qty-control">
+            <button type="button" class="qty-btn" onclick="adjustQty(-1)" aria-label="Decrease quantity">−</button>
+            <input type="number" name="quantity" id="qty-input" class="qty-input" value="1" min="1" max="{{ product.stock }}" aria-label="Quantity">
+            <button type="button" class="qty-btn" onclick="adjustQty(1)" aria-label="Increase quantity">+</button>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg" style="flex:1">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+          Add to Cart
+        </button>
+      </form>
+      {% else %}
+        <button class="btn btn-secondary btn-lg btn-block" disabled aria-disabled="true">Out of Stock</button>
+      {% endif %}
+
+      <!-- Wishlist -->
+      {% if user.is_authenticated %}
+      <form method="post" action="{% url 'shop:toggle_wishlist' %}" style="margin-top:.75rem">
+        {% csrf_token %}
+        <input type="hidden" name="product_id" value="{{ product.id }}">
+        <button type="submit" class="btn btn-ghost btn-block wishlist-toggle-btn {% if in_wishlist %}active{% endif %}"
+                data-product-id="{{ product.id }}" aria-pressed="{{ in_wishlist|yesno:'true,false' }}">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="{% if in_wishlist %}currentColor{% else %}none{% endif %}" stroke="currentColor" stroke-width="2" style="color:var(--error)" aria-hidden="true">
+            <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 000-7.78z"/>
+          </svg>
+          {% if in_wishlist %}Remove from Wishlist{% else %}Add to Wishlist{% endif %}
+        </button>
+      </form>
+      {% endif %}
+
+      <!-- Tags -->
+      {% if product.get_tags_list %}
+      <div style="margin-top:1.25rem;display:flex;flex-wrap:wrap;gap:.375rem" aria-label="Product tags">
+        {% for tag in product.get_tags_list %}
+          <a href="{% url 'shop:search' %}?q={{ tag }}" class="tag tag-primary">{{ tag }}</a>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Description -->
+  <div class="card mt-8">
+    <h2 class="card-title">Product Description</h2>
+    <div style="line-height:1.8;color:var(--text)">{{ product.description|linebreaks }}</div>
+  </div>
+
+  <!-- Related Products -->
+  {% if related %}
+  <section class="section" aria-labelledby="related-heading">
+    <div class="section-header">
+      <h2 class="section-title" id="related-heading">Related Products</h2>
+    </div>
+    <div class="product-grid" role="list">
+      {% for p in related %}{% include "shop/includes/product_card.html" with product=p %}{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- Tag Recommendations -->
+  {% if tag_recs %}
+  <section class="section" aria-labelledby="tagrec-heading">
+    <div class="section-header">
+      <h2 class="section-title" id="tagrec-heading">You Might Also Like</h2>
+    </div>
+    <div class="product-grid" role="list">
+      {% for p in tag_recs %}{% include "shop/includes/product_card.html" with product=p %}{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- Reviews -->
+  <section id="reviews" class="reviews-section" aria-labelledby="reviews-heading">
+    <div class="section-header">
+      <h2 class="section-title" id="reviews-heading">Customer Reviews</h2>
+      <div class="rating-summary">
+        <div class="stars" aria-hidden="true">
+          {% with avg=product.get_avg_rating %}
+          {% for i in "12345" %}
+            <span class="star {% if forloop.counter <= avg %}filled{% endif %}">★</span>
+          {% endfor %}
+          {% endwith %}
+        </div>
+        <span class="avg-rating-display rating-avg">{{ product.get_avg_rating }}</span>
+        <span class="rating-count">({{ product.get_rating_count }})</span>
+      </div>
+    </div>
+
+    <!-- Rating Distribution -->
+    {% if ratings %}
+    <div class="card mb-6" style="max-width:400px">
+      {% for star, count in rating_dist_items %}
+      <div class="rating-bar">
+        <span class="rating-bar-label">{{ star }}★</span>
+        <div class="rating-bar-track" aria-hidden="true">
+          <div class="rating-bar-fill" style="width:{% if product.get_rating_count %}{% widthratio count product.get_rating_count 100 %}{% else %}0{% endif %}%"></div>
+        </div>
+        <span class="rating-bar-count">{{ count }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Write Review -->
+    {% if user.is_authenticated %}
+    <div class="card mb-6">
+      <h3 class="card-title">{% if user_rating %}Update Your Review{% else %}Write a Review{% endif %}</h3>
+      <form id="rating-form" action="{% url 'shop:rate_product' product.slug %}" method="post">
+        {% csrf_token %}
+        <div class="form-group">
+          <label class="form-label" id="star-label">Your Rating <span class="required">*</span></label>
+          <div class="stars stars-interactive" role="radiogroup" aria-labelledby="star-label">
+            {% for i in "12345" %}
+            <span class="star {% if user_rating and forloop.counter <= user_rating.rating %}filled{% endif %}"
+                  data-value="{{ forloop.counter }}" aria-label="{{ forloop.counter }} star">★</span>
+            {% endfor %}
+          </div>
+          <input type="hidden" name="rating" id="rating-value" value="{{ user_rating.rating|default:0 }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="review-text">Your Review</label>
+          <textarea name="review" id="review-text" class="form-control" rows="4" placeholder="Share your experience with this product…">{{ user_rating.review|default:"" }}</textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Submit Review</button>
+      </form>
+    </div>
+    {% else %}
+    <div class="alert alert-info mb-6">
+      <span>⭐</span>
+      <span><a href="{% url 'shop:login' %}?next={{ request.path }}" class="font-bold text-primary">Log in</a> to write a review.</span>
+    </div>
+    {% endif %}
+
+    <!-- Reviews List -->
+    <div id="reviews-list">
+      {% for review in ratings %}
+      <article class="review-card">
+        <div class="review-header">
+          <div class="review-avatar" aria-hidden="true">{{ review.user.first_name|first|upper|default:review.user.username|first|upper }}</div>
+          <div>
+            <div class="review-author">{{ review.user.get_full_name|default:review.user.username }}</div>
+            <div style="display:flex;align-items:center;gap:.5rem">
+              <div class="stars" aria-label="{{ review.rating }} out of 5 stars">
+                {% for i in "12345" %}
+                  <span class="star {% if forloop.counter <= review.rating %}filled{% endif %}">★</span>
+                {% endfor %}
+              </div>
+              {% if review.is_verified_purchase %}
+                <span class="verified-badge">✓ Verified Purchase</span>
+              {% endif %}
+            </div>
+            <div class="review-date text-muted text-sm"><time datetime="{{ review.created_at|date:'Y-m-d' }}">{{ review.created_at|date:"N j, Y" }}</time></div>
+          </div>
+        </div>
+        {% if review.review %}<p class="review-text">{{ review.review }}</p>{% endif %}
+      </article>
+      {% empty %}
+        <div class="empty-state" style="padding:2rem">
+          <p>No reviews yet. Be the first to review this product!</p>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
 
 </div>
+{% endblock %}
 
-</div>
-
+{% block extra_js %}
+<script>
+function adjustQty(delta) {
+  const input = document.getElementById('qty-input');
+  const max = parseInt(input.max, 10) || 99;
+  const val = Math.max(1, Math.min(max, parseInt(input.value, 10) + delta));
+  input.value = val;
+}
+</script>
 {% endblock %}

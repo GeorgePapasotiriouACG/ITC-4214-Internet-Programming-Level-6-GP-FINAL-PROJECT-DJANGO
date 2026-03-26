@@ -1,26 +1,119 @@
 {% extends "shop/base.html" %}
+{% load static %}
+
+{% block title %}Home{% endblock %}
 
 {% block content %}
-<h1 class="text-3xl font-bold mb-6">Products</h1>
 
-<div class="flex space-x-4 mb-6">
-    <a href="{% url 'shop:home' %}" class="px-3 py-1 bg-gray-200 rounded hover:bg-blue-500 hover:text-white">All</a>
-    {% for category in categories %}
-        <a href="{% url 'shop:category_products' category.id %}" class="px-3 py-1 bg-gray-200 rounded hover:bg-blue-500 hover:text-white">
-            {{ category.name }}
-        </a>
-    {% endfor %}
-</div>
-
-<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-    {% for product in products %}
-    <div class="bg-white shadow rounded p-4 hover:shadow-lg transition">
-        <img src="{{ product.image.url }}" alt="{{ product.name }}" class="w-full h-48 object-cover rounded mb-3">
-        <h2 class="font-bold text-lg">{{ product.name }}</h2>
-        <p class="text-gray-600 mb-2">{{ product.description|truncatechars:60 }}</p>
-        <p class="font-bold text-blue-600 mb-2">${{ product.price }}</p>
-        <a href="{% url 'shop:place_order' %}" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Buy</a>
+<!-- Hero -->
+<section class="hero" aria-labelledby="hero-heading">
+  <div class="hero-inner">
+    <h1 id="hero-heading">Shop the Trend,<br>Live the Style</h1>
+    <p>Discover thousands of curated products across every category — from fashion to electronics, home décor to sports gear.</p>
+    <div class="hero-actions">
+      <a href="{% url 'shop:product_list' %}" class="btn btn-white btn-lg">Explore Products</a>
+      {% if not user.is_authenticated %}
+        <a href="{% url 'shop:register' %}" class="btn btn-secondary btn-lg" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.6)">Join Free</a>
+      {% endif %}
     </div>
-    {% endfor %}
-</div>
+  </div>
+</section>
+
+<!-- Categories -->
+{% if root_categories %}
+<section class="section" aria-labelledby="cats-heading">
+  <div class="container">
+    <div class="section-header">
+      <h2 class="section-title" id="cats-heading">Shop by Category</h2>
+      <a href="{% url 'shop:product_list' %}" class="section-link">View all →</a>
+    </div>
+    <div class="category-grid" role="list">
+      {% for cat in root_categories %}
+      <a href="{% url 'shop:category' cat.slug %}" class="category-card" role="listitem" aria-label="Browse {{ cat.name }}">
+        <span class="category-icon" aria-hidden="true">{{ cat.icon|default:"🛍️" }}</span>
+        <span class="category-name">{{ cat.name }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- Featured Products -->
+{% if featured %}
+<section class="section" style="background:#fff;padding:3rem 0;" aria-labelledby="featured-heading">
+  <div class="container">
+    <div class="section-header">
+      <h2 class="section-title" id="featured-heading">✨ Featured Products</h2>
+      <a href="{% url 'shop:product_list' %}" class="section-link">See all →</a>
+    </div>
+    <div class="product-grid" role="list">
+      {% for product in featured %}
+      {% include "shop/includes/product_card.html" with product=product %}
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- New Arrivals -->
+{% if new_arrivals %}
+<section class="section" aria-labelledby="new-heading">
+  <div class="container">
+    <div class="section-header">
+      <h2 class="section-title" id="new-heading">🆕 New Arrivals</h2>
+      <a href="{% url 'shop:product_list' %}?sort=newest" class="section-link">See all →</a>
+    </div>
+    <div class="product-grid" role="list">
+      {% for product in new_arrivals %}
+      {% include "shop/includes/product_card.html" with product=product %}
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- Personalized Recommendations -->
+{% if recommendations %}
+<section class="section" style="background:#f5f3ff;padding:3rem 0;" aria-labelledby="recs-heading">
+  <div class="container">
+    <div class="section-header">
+      <h2 class="section-title" id="recs-heading">💜 Recommended for You</h2>
+      <a href="{% url 'shop:product_list' %}" class="section-link">Browse more →</a>
+    </div>
+    <div class="product-grid" role="list">
+      {% for product in recommendations %}
+      {% include "shop/includes/product_card.html" with product=product %}
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- Best Sellers -->
+{% if best_sellers %}
+<section class="section" aria-labelledby="best-heading">
+  <div class="container">
+    <div class="section-header">
+      <h2 class="section-title" id="best-heading">🔥 Best Sellers</h2>
+      <a href="{% url 'shop:product_list' %}?sort=popular" class="section-link">See all →</a>
+    </div>
+    <div class="product-grid" role="list">
+      {% for product in best_sellers %}
+      {% include "shop/includes/product_card.html" with product=product %}
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- Sell CTA -->
+<section class="section" style="background:linear-gradient(135deg,var(--dark-alt),var(--dark));color:#fff;padding:4rem 0;" aria-labelledby="sell-heading">
+  <div class="container" style="text-align:center">
+    <h2 id="sell-heading" style="font-size:2rem;font-weight:900;margin-bottom:.75rem">Want to sell on TrendMart?</h2>
+    <p style="opacity:.8;margin-bottom:1.75rem;font-size:1.0625rem">Join thousands of retailers and reach millions of customers worldwide.</p>
+    <a href="{% url 'shop:register' %}?role=retailer" class="btn btn-primary btn-lg">Start Selling Today</a>
+  </div>
+</section>
+
 {% endblock %}

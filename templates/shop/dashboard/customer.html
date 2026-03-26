@@ -1,0 +1,164 @@
+{% extends "shop/base.html" %}
+{% block title %}My Dashboard{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top:1.5rem;padding-bottom:3rem">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem">
+    <div>
+      <h1 style="font-size:1.75rem;font-weight:800;color:var(--dark)">Welcome back, {{ user.first_name|default:user.username }}! 👋</h1>
+      <p style="color:var(--text-light)">Here's what's been happening in your account</p>
+    </div>
+    <a href="{% url 'shop:profile' %}" class="btn btn-ghost btn-sm">Edit Profile</a>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid" style="margin-bottom:2rem">
+    <div class="stat-card">
+      <div class="stat-icon" aria-hidden="true">📦</div>
+      <div class="stat-value">{{ total_orders }}</div>
+      <div class="stat-label">Total Orders</div>
+      <a href="{% url 'shop:order_list' %}" class="stat-link">View all →</a>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" aria-hidden="true">❤️</div>
+      <div class="stat-value">{{ total_wishlist }}</div>
+      <div class="stat-label">Wishlist Items</div>
+      <a href="{% url 'shop:wishlist' %}" class="stat-link">View all →</a>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" aria-hidden="true">⭐</div>
+      <div class="stat-value">{{ total_reviews }}</div>
+      <div class="stat-label">Reviews Written</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" aria-hidden="true">👁️</div>
+      <div class="stat-value">{{ viewed_products|length }}</div>
+      <div class="stat-label">Recently Viewed</div>
+    </div>
+  </div>
+
+  <div class="dashboard-grid">
+    <!-- Left column -->
+    <div>
+      <!-- Recent Orders -->
+      <section class="card" style="margin-bottom:1.25rem" aria-labelledby="orders-heading">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+          <h2 class="card-title" id="orders-heading" style="margin-bottom:0">Recent Orders</h2>
+          <a href="{% url 'shop:order_list' %}" class="text-primary text-sm font-bold">View all →</a>
+        </div>
+        {% if recent_orders %}
+        <div style="overflow-x:auto">
+          <table class="admin-table" role="table" aria-label="Recent orders">
+            <thead>
+              <tr>
+                <th scope="col">Order #</th>
+                <th scope="col">Date</th>
+                <th scope="col">Total</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for order in recent_orders %}
+              <tr>
+                <td><a href="{% url 'shop:order_detail' order.order_number %}" class="text-primary font-bold">{{ order.order_number }}</a></td>
+                <td>{{ order.created_at|date:"N j, Y" }}</td>
+                <td><strong>${{ order.total_amount }}</strong></td>
+                <td><span class="status-badge status-{{ order.status }}">{{ order.get_status_display }}</span></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+          <div class="empty-state" style="padding:2rem">
+            <p>No orders yet. <a href="{% url 'shop:product_list' %}" class="text-primary">Start shopping!</a></p>
+          </div>
+        {% endif %}
+      </section>
+
+      <!-- Wishlist preview -->
+      {% if wishlist_items %}
+      <section class="card" style="margin-bottom:1.25rem" aria-labelledby="wishlist-heading">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+          <h2 class="card-title" id="wishlist-heading" style="margin-bottom:0">My Wishlist</h2>
+          <a href="{% url 'shop:wishlist' %}" class="text-primary text-sm font-bold">View all →</a>
+        </div>
+        <div class="product-grid product-grid-sm" role="list">
+          {% for item in wishlist_items %}{% include "shop/includes/product_card.html" with product=item.product %}{% endfor %}
+        </div>
+      </section>
+      {% endif %}
+
+      <!-- Recent Reviews -->
+      {% if recent_ratings %}
+      <section class="card" aria-labelledby="reviews-heading">
+        <h2 class="card-title" id="reviews-heading">My Reviews</h2>
+        {% for rating in recent_ratings %}
+        <div style="padding:.875rem 0;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
+            <a href="{{ rating.product.get_absolute_url }}" class="font-bold text-primary" style="font-size:.9rem">{{ rating.product.name }}</a>
+            <div class="stars" aria-label="{{ rating.rating }} out of 5">
+              {% for i in "12345" %}<span class="star {% if forloop.counter <= rating.rating %}filled{% endif %}">★</span>{% endfor %}
+            </div>
+          </div>
+          {% if rating.review %}<p style="font-size:.875rem;color:var(--text-light);margin-top:.25rem">{{ rating.review|truncatewords:20 }}</p>{% endif %}
+          <div style="font-size:.75rem;color:var(--text-light);margin-top:.25rem">{{ rating.created_at|date:"N j, Y" }}</div>
+        </div>
+        {% endfor %}
+      </section>
+      {% endif %}
+    </div>
+
+    <!-- Right column -->
+    <div>
+      <!-- Recommendations -->
+      {% if recommendations %}
+      <section class="card" style="margin-bottom:1.25rem" aria-labelledby="recs-heading">
+        <h2 class="card-title" id="recs-heading">Recommended for You</h2>
+        <p style="font-size:.8rem;color:var(--text-light);margin-bottom:.875rem">Based on your browsing history</p>
+        <div style="display:flex;flex-direction:column;gap:.875rem">
+          {% for product in recommendations %}
+          <a href="{{ product.get_absolute_url }}" style="display:flex;gap:.75rem;align-items:center;text-decoration:none;padding:.5rem;border-radius:var(--radius-sm);transition:background var(--transition)" class="hover-bg">
+            {% if product.image %}
+              <img src="{{ product.image.url }}" alt="{{ product.name }}" style="width:52px;height:52px;object-fit:cover;border-radius:var(--radius-sm);flex-shrink:0" loading="lazy">
+            {% else %}
+              <div style="width:52px;height:52px;background:var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;flex-shrink:0" aria-hidden="true">📦</div>
+            {% endif %}
+            <div style="min-width:0">
+              <div style="font-weight:600;font-size:.875rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dark)">{{ product.name }}</div>
+              <div style="font-size:.8rem;color:var(--text-light)">{{ product.category.name }}</div>
+              <div style="font-weight:700;color:var(--primary);font-size:.875rem">${{ product.get_effective_price }}</div>
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+      </section>
+      {% endif %}
+
+      <!-- Recently Viewed -->
+      {% if viewed_products %}
+      <section class="card" aria-labelledby="viewed-heading">
+        <h2 class="card-title" id="viewed-heading">Recently Viewed</h2>
+        <div style="display:flex;flex-direction:column;gap:.875rem">
+          {% for vp in viewed_products %}
+          <a href="{{ vp.product.get_absolute_url }}" style="display:flex;gap:.75rem;align-items:center;text-decoration:none;padding:.5rem;border-radius:var(--radius-sm);transition:background var(--transition)" class="hover-bg">
+            {% if vp.product.image %}
+              <img src="{{ vp.product.image.url }}" alt="{{ vp.product.name }}" style="width:52px;height:52px;object-fit:cover;border-radius:var(--radius-sm);flex-shrink:0" loading="lazy">
+            {% else %}
+              <div style="width:52px;height:52px;background:var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;flex-shrink:0" aria-hidden="true">📦</div>
+            {% endif %}
+            <div style="min-width:0">
+              <div style="font-weight:600;font-size:.875rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dark)">{{ vp.product.name }}</div>
+              <div style="font-size:.8rem;color:var(--text-light)">{{ vp.viewed_at|timesince }} ago</div>
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+      </section>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

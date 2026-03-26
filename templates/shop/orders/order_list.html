@@ -1,0 +1,54 @@
+{% extends "shop/base.html" %}
+{% block title %}My Orders{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top:1.5rem;padding-bottom:3rem">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem">
+    <div>
+      <h1 style="font-size:1.75rem;font-weight:800;color:var(--dark)">My Orders</h1>
+      <p style="color:var(--text-light)">{{ orders|length }} order{{ orders|length|pluralize }} total</p>
+    </div>
+    <a href="{% url 'shop:dashboard' %}" class="btn btn-ghost btn-sm">← Dashboard</a>
+  </div>
+
+  {% if orders %}
+  <div class="card" style="padding:0;overflow:hidden">
+    <table class="admin-table" role="table" aria-label="Order history">
+      <thead>
+        <tr>
+          <th scope="col">Order #</th>
+          <th scope="col">Date</th>
+          <th scope="col">Items</th>
+          <th scope="col">Total</th>
+          <th scope="col">Status</th>
+          <th scope="col"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for order in orders %}
+        <tr>
+          <td><strong>{{ order.order_number }}</strong></td>
+          <td>{{ order.created_at|date:"N j, Y" }}</td>
+          <td>{{ order.items.count }} item{{ order.items.count|pluralize }}</td>
+          <td><strong style="color:var(--primary)">${{ order.total_amount }}</strong></td>
+          <td><span class="status-badge status-{{ order.status }}">{{ order.get_status_display }}</span></td>
+          <td>
+            <a href="{% url 'shop:order_detail' order.order_number %}" class="btn btn-ghost btn-sm">View Details</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state" role="status">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    <h2>No orders yet</h2>
+    <p>When you place an order, it will appear here.</p>
+    <a href="{% url 'shop:product_list' %}" class="btn btn-primary">Start Shopping</a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

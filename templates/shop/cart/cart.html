@@ -1,0 +1,139 @@
+{% extends "shop/base.html" %}
+{% block title %}Shopping Cart{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top:1.5rem;padding-bottom:3rem">
+
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="{% url 'shop:home' %}">Home</a><span class="breadcrumb-sep" aria-hidden="true">/</span>
+    <span class="breadcrumb-current">Shopping Cart</span>
+  </nav>
+
+  <h1 style="font-size:1.75rem;font-weight:800;color:var(--dark);margin-bottom:1.5rem">
+    Shopping Cart
+    {% if items %}<span style="font-size:1rem;font-weight:400;color:var(--text-light)">({{ items|length }} item{{ items|length|pluralize }})</span>{% endif %}
+  </h1>
+
+  {% if items %}
+  <div class="cart-layout">
+    <!-- Cart Items -->
+    <div>
+      {% for item in items %}
+      <div class="cart-item" id="cart-item-{{ item.id }}" role="article" aria-label="{{ item.product.name }}">
+        <a href="{{ item.product.get_absolute_url }}" aria-label="{{ item.product.name }}">
+          {% if item.product.image %}
+            <img src="{{ item.product.image.url }}" alt="{{ item.product.name }}" class="cart-item-img" loading="lazy">
+          {% else %}
+            <img src="https://placehold.co/100x100/e2d9f3/7C3AED?text=Product" alt="{{ item.product.name }}" class="cart-item-img">
+          {% endif %}
+        </a>
+        <div class="cart-item-info">
+          <div class="cart-item-name">
+            <a href="{{ item.product.get_absolute_url }}">{{ item.product.name }}</a>
+          </div>
+          {% if item.size %}<div class="cart-item-meta">Size: <strong>{{ item.size }}</strong></div>{% endif %}
+          {% if item.product.brand %}<div class="cart-item-meta">Brand: {{ item.product.brand.name }}</div>{% endif %}
+          {% if item.product.is_on_sale %}
+            <div class="cart-item-price">
+              <span style="color:var(--error);font-weight:700">${{ item.product.sale_price }}</span>
+              <span style="color:var(--text-light);text-decoration:line-through;font-size:.875rem">${{ item.product.price }}</span>
+            </div>
+          {% else %}
+            <div class="cart-item-price">${{ item.product.price }}</div>
+          {% endif %}
+        </div>
+        <div class="cart-item-controls">
+          <div class="qty-control">
+            <button type="button" class="qty-btn" aria-label="Decrease quantity"
+                    onclick="updateCartItem({{ item.id }}, {{ item.quantity|add:'-1' }})">−</button>
+            <input type="number" class="qty-input" value="{{ item.quantity }}" min="1" max="{{ item.product.stock }}"
+                   aria-label="Quantity for {{ item.product.name }}"
+                   onchange="updateCartItem({{ item.id }}, this.value)">
+            <button type="button" class="qty-btn" aria-label="Increase quantity"
+                    onclick="updateCartItem({{ item.id }}, {{ item.quantity|add:'1' }})">+</button>
+          </div>
+          <div class="cart-item-subtotal" id="subtotal-{{ item.id }}">${{ item.get_subtotal }}</div>
+          <form method="post" action="{% url 'shop:remove_from_cart' item.id %}" style="display:inline">
+            {% csrf_token %}
+            <button type="submit" class="btn-remove" aria-label="Remove {{ item.product.name }} from cart">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+              Remove
+            </button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Order Summary -->
+    <aside class="cart-summary" aria-label="Order summary">
+      <h2 class="card-title">Order Summary</h2>
+
+      <div class="summary-line">
+        <span>Subtotal ({{ items|length }} item{{ items|length|pluralize }})</span>
+        <span id="cart-total">${{ cart.get_total }}</span>
+      </div>
+      <div class="summary-line">
+        <span>Shipping</span>
+        <span style="color:var(--success)">Free</span>
+      </div>
+      <div class="summary-line" style="font-weight:800;font-size:1.125rem;padding-top:.75rem;border-top:2px solid var(--border);margin-top:.5rem">
+        <span>Total</span>
+        <span id="cart-grand-total" style="color:var(--primary)">${{ cart.get_total }}</span>
+      </div>
+
+      {% if user.is_authenticated %}
+        <a href="{% url 'shop:checkout' %}" class="btn btn-primary btn-block" style="margin-top:1.25rem">
+          Proceed to Checkout
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
+      {% else %}
+        <a href="{% url 'shop:login' %}?next={% url 'shop:checkout' %}" class="btn btn-primary btn-block" style="margin-top:1.25rem">
+          Login to Checkout
+        </a>
+      {% endif %}
+
+      <a href="{% url 'shop:product_list' %}" class="btn btn-ghost btn-block" style="margin-top:.5rem">Continue Shopping</a>
+
+      <div class="trust-badges" style="margin-top:1.25rem;text-align:center;font-size:.8rem;color:var(--text-light)">
+        <div>🔒 Secure Checkout &nbsp;|&nbsp; 🚚 Free Shipping &nbsp;|&nbsp; ↩️ Easy Returns</div>
+      </div>
+    </aside>
+  </div>
+
+  {% else %}
+  <div class="empty-state" role="status">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+    <h2>Your cart is empty</h2>
+    <p>Looks like you haven't added anything yet.</p>
+    <a href="{% url 'shop:product_list' %}" class="btn btn-primary">Start Shopping</a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updateCartItem(itemId, qty) {
+  qty = parseInt(qty, 10);
+  if (qty < 1) { return; }
+  fetch(`/cart/update/${itemId}/`, {
+    method: 'POST',
+    headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken'), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ quantity: qty }),
+  }).then(r => r.json()).then(data => {
+    if (data.success) {
+      const subEl = document.getElementById(`subtotal-${itemId}`);
+      if (subEl) subEl.textContent = `$${data.subtotal}`;
+      const totalEl = document.getElementById('cart-total');
+      const grandEl = document.getElementById('cart-grand-total');
+      if (totalEl) totalEl.textContent = `$${data.cart_total}`;
+      if (grandEl) grandEl.textContent = `$${data.cart_total}`;
+      const badge = document.querySelector('.cart-badge');
+      if (badge) { badge.textContent = data.cart_count; badge.style.display = data.cart_count ? '' : 'none'; }
+    }
+  });
+}
+</script>
+{% endblock %}

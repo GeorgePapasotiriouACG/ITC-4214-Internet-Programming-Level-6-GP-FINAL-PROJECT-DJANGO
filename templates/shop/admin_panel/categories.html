@@ -1,0 +1,109 @@
+{% extends "shop/admin_panel/base_admin.html" %}
+{% block title %}Admin — Categories{% endblock %}
+
+{% block admin_content %}
+<div class="admin-content-header">
+  <h1 class="admin-page-title">Categories</h1>
+</div>
+
+<div class="dashboard-grid">
+  <!-- Add / Edit Form -->
+  <div>
+    <div class="card">
+      <h2 class="card-title">{% if edit_category %}Edit Category{% else %}Add New Category{% endif %}</h2>
+      <form method="post" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+        {% if edit_category %}<input type="hidden" name="category_id" value="{{ edit_category.pk }}">{% endif %}
+
+        <div class="form-group">
+          <label class="form-label" for="{{ form.name.id_for_label }}">Name <span class="required">*</span></label>
+          {{ form.name }}
+          {% if form.name.errors %}<div class="form-error" role="alert">{{ form.name.errors.0 }}</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="{{ form.parent.id_for_label }}">Parent Category</label>
+          {{ form.parent }}
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="{{ form.icon.id_for_label }}">Icon (emoji)</label>
+            {{ form.icon }}
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="{{ form.order.id_for_label }}">Sort Order</label>
+            {{ form.order }}
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="{{ form.description.id_for_label }}">Description</label>
+          {{ form.description }}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="{{ form.image.id_for_label }}">Category Image</label>
+          {{ form.image }}
+        </div>
+
+        <div style="display:flex;gap:1rem">
+          <button type="submit" class="btn btn-primary">{% if edit_category %}Update{% else %}Add Category{% endif %}</button>
+          {% if edit_category %}<a href="{% url 'shop:admin_categories' %}" class="btn btn-ghost">Cancel</a>{% endif %}
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Categories List -->
+  <div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:1.25rem 1.5rem;border-bottom:1px solid var(--border)">
+        <h2 style="font-weight:700;font-size:1rem">All Categories ({{ categories|length }})</h2>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="admin-table" role="table" aria-label="Categories">
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Parent</th>
+              <th scope="col">Products</th>
+              <th scope="col">Status</th>
+              <th scope="col"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cat in categories %}
+            <tr>
+              <td>
+                <span aria-hidden="true">{{ cat.icon }}</span>
+                {% if cat.parent %}&nbsp;&nbsp;↳&nbsp;{% endif %}
+                <strong>{{ cat.name }}</strong>
+              </td>
+              <td>{{ cat.parent.name|default:"—" }}</td>
+              <td>{{ cat.products.count }}</td>
+              <td>
+                {% if cat.is_active %}<span class="status-badge status-delivered">Active</span>
+                {% else %}<span class="status-badge status-cancelled">Inactive</span>{% endif %}
+              </td>
+              <td>
+                <div style="display:flex;gap:.375rem">
+                  <a href="?edit={{ cat.pk }}" class="btn btn-ghost btn-sm">Edit</a>
+                  <form method="post" action="{% url 'shop:admin_category_delete' cat.pk %}"
+                        onsubmit="return confirm('Delete {{ cat.name|escapejs }}? Products in it will be affected.')">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm" style="background:var(--error);color:#fff">Del</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-light)">No categories yet</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

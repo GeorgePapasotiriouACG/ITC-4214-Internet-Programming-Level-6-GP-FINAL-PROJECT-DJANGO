@@ -1,0 +1,113 @@
+{% extends "shop/base.html" %}
+{% block title %}My Profile{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top:2rem;padding-bottom:3rem;max-width:800px">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem">
+    <div>
+      <h1 style="font-size:1.75rem;font-weight:800;color:var(--dark)">My Profile</h1>
+      <p style="color:var(--text-light)">Manage your personal information</p>
+    </div>
+    <a href="{% url 'shop:dashboard' %}" class="btn btn-ghost btn-sm">← Back to Dashboard</a>
+  </div>
+
+  <div class="card">
+    <!-- Avatar section -->
+    <div style="display:flex;align-items:center;gap:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid var(--border);margin-bottom:1.5rem;flex-wrap:wrap">
+      <div class="user-avatar-lg" aria-hidden="true" style="width:80px;height:80px;font-size:2rem">
+        {% if profile.avatar %}
+          <img src="{{ profile.avatar.url }}" alt="{{ user.get_full_name }}" style="width:80px;height:80px;border-radius:50%;object-fit:cover">
+        {% else %}
+          {{ user.first_name|first|upper|default:user.username|first|upper }}
+        {% endif %}
+      </div>
+      <div>
+        <div style="font-size:1.25rem;font-weight:700;color:var(--dark)">{{ user.get_full_name|default:user.username }}</div>
+        <div style="color:var(--text-light)">{{ user.email }}</div>
+        <div style="margin-top:.25rem">
+          <span class="badge badge-primary">{{ profile.role|capfirst }}</span>
+          <span style="color:var(--text-light);font-size:.75rem;margin-left:.5rem">Member since {{ user.date_joined|date:"N Y" }}</span>
+        </div>
+      </div>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="{{ form.first_name.id_for_label }}">First Name</label>
+          {{ form.first_name }}
+          {% if form.first_name.errors %}<div class="form-error" role="alert">{{ form.first_name.errors.0 }}</div>{% endif %}
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="{{ form.last_name.id_for_label }}">Last Name</label>
+          {{ form.last_name }}
+          {% if form.last_name.errors %}<div class="form-error" role="alert">{{ form.last_name.errors.0 }}</div>{% endif %}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.email.id_for_label }}">Email Address</label>
+        {{ form.email }}
+        {% if form.email.errors %}<div class="form-error" role="alert">{{ form.email.errors.0 }}</div>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="{{ form.phone.id_for_label }}">Phone Number</label>
+          {{ form.phone }}
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="{{ form.date_of_birth.id_for_label }}">Date of Birth</label>
+          {{ form.date_of_birth }}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.bio.id_for_label }}">Bio</label>
+        {{ form.bio }}
+      </div>
+
+      <hr style="margin:1.25rem 0;border-color:var(--border)">
+      <p style="font-weight:700;color:var(--dark);margin-bottom:.75rem">Shipping Address</p>
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.address.id_for_label }}">Address</label>
+        {{ form.address }}
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="{{ form.city.id_for_label }}">City</label>
+          {{ form.city }}
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="{{ form.postal_code.id_for_label }}">Postal Code</label>
+          {{ form.postal_code }}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.country.id_for_label }}">Country</label>
+        {{ form.country }}
+      </div>
+
+      <hr style="margin:1.25rem 0;border-color:var(--border)">
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.avatar.id_for_label }}">Profile Photo</label>
+        {{ form.avatar }}
+        {% if profile.avatar %}<p style="font-size:.75rem;color:var(--text-light);margin-top:.25rem">Current photo will be replaced if a new one is uploaded.</p>{% endif %}
+      </div>
+
+      <div style="display:flex;gap:1rem;flex-wrap:wrap">
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+        <a href="{% url 'shop:dashboard' %}" class="btn btn-ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+
+</div>
+{% endblock %}

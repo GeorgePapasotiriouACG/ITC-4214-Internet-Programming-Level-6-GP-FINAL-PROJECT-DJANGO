@@ -1,0 +1,151 @@
+{% extends "shop/base.html" %}
+{% block title %}{% if role == 'retailer' %}Retailer Registration{% else %}Create Account{% endif %}{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+  <div class="auth-container" style="max-width:560px">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <a href="{% url 'shop:home' %}" aria-label="TrendMart Home">Trend<span>Mart</span></a>
+      </div>
+
+      <!-- Role Tabs -->
+      <div class="auth-tabs" role="tablist" aria-label="Registration type">
+        <a href="{% url 'shop:register' %}" class="auth-tab {% if role != 'retailer' %}active{% endif %}"
+           role="tab" aria-selected="{{ role != 'retailer' }}">
+          🛍️ Customer
+        </a>
+        <a href="{% url 'shop:register' %}?role=retailer" class="auth-tab {% if role == 'retailer' %}active{% endif %}"
+           role="tab" aria-selected="{{ role == 'retailer' }}">
+          🏪 Retailer
+        </a>
+      </div>
+
+      {% if role == 'retailer' %}
+        <h1 class="auth-title">Start Selling on TrendMart</h1>
+        <p class="auth-subtitle">Join our marketplace and reach thousands of customers</p>
+      {% else %}
+        <h1 class="auth-title">Create Your Account</h1>
+        <p class="auth-subtitle">Join TrendMart and shop the latest trends</p>
+      {% endif %}
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="role" value="{{ role }}">
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="{{ form.first_name.id_for_label }}">First Name <span class="required">*</span></label>
+            {{ form.first_name }}
+            {% if form.first_name.errors %}<div class="form-error" role="alert">{{ form.first_name.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="{{ form.last_name.id_for_label }}">Last Name <span class="required">*</span></label>
+            {{ form.last_name }}
+            {% if form.last_name.errors %}<div class="form-error" role="alert">{{ form.last_name.errors.0 }}</div>{% endif %}
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="{{ form.email.id_for_label }}">Email Address <span class="required">*</span></label>
+          {{ form.email }}
+          {% if form.email.errors %}<div class="form-error" role="alert">{{ form.email.errors.0 }}</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="{{ form.username.id_for_label }}">Username <span class="required">*</span></label>
+          {{ form.username }}
+          {% if form.username.errors %}<div class="form-error" role="alert">{{ form.username.errors.0 }}</div>{% endif %}
+        </div>
+
+        {% if form.phone %}
+        <div class="form-group">
+          <label class="form-label" for="{{ form.phone.id_for_label }}">Phone Number</label>
+          {{ form.phone }}
+          {% if form.phone.errors %}<div class="form-error" role="alert">{{ form.phone.errors.0 }}</div>{% endif %}
+        </div>
+        {% endif %}
+
+        {% if role == 'retailer' %}
+        <hr style="margin:1rem 0;border-color:var(--border)">
+        <p style="font-weight:700;color:var(--dark);margin-bottom:.75rem">Business Information</p>
+
+        <div class="form-group">
+          <label class="form-label" for="{{ form.business_name.id_for_label }}">Business Name <span class="required">*</span></label>
+          {{ form.business_name }}
+          {% if form.business_name.errors %}<div class="form-error" role="alert">{{ form.business_name.errors.0 }}</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="{{ form.business_description.id_for_label }}">Business Description</label>
+          {{ form.business_description }}
+          {% if form.business_description.errors %}<div class="form-error" role="alert">{{ form.business_description.errors.0 }}</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="{{ form.business_address.id_for_label }}">Business Address</label>
+          {{ form.business_address }}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="{{ form.website.id_for_label }}">Website</label>
+          {{ form.website }}
+        </div>
+        <hr style="margin:1rem 0;border-color:var(--border)">
+        {% endif %}
+
+        <div class="form-group">
+          <label class="form-label" for="{{ form.password1.id_for_label }}">Password <span class="required">*</span></label>
+          <div class="password-field">
+            {{ form.password1 }}
+            <button type="button" class="password-toggle" aria-label="Toggle password visibility"
+                    onclick="togglePassword('{{ form.password1.id_for_label }}', this)">👁</button>
+          </div>
+          {% if form.password1.errors %}<div class="form-error" role="alert">{{ form.password1.errors.0 }}</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="{{ form.password2.id_for_label }}">Confirm Password <span class="required">*</span></label>
+          <div class="password-field">
+            {{ form.password2 }}
+            <button type="button" class="password-toggle" aria-label="Toggle confirm password visibility"
+                    onclick="togglePassword('{{ form.password2.id_for_label }}', this)">👁</button>
+          </div>
+          {% if form.password2.errors %}<div class="form-error" role="alert">{{ form.password2.errors.0 }}</div>{% endif %}
+        </div>
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-error" role="alert">{{ form.non_field_errors.0 }}</div>
+        {% endif %}
+
+        <button type="submit" class="btn btn-primary btn-block">
+          {% if role == 'retailer' %}Apply as Retailer{% else %}Create Account{% endif %}
+        </button>
+      </form>
+
+      <div class="auth-divider"><span>or</span></div>
+
+      <p class="auth-switch">
+        Already have an account? <a href="{% url 'shop:login' %}">Sign in</a>
+      </p>
+
+      {% if role != 'retailer' %}
+      <div class="auth-retailer-cta">
+        <p>Want to sell your products on TrendMart?</p>
+        <a href="{% url 'shop:register' %}?role=retailer" class="btn btn-ghost btn-sm">Register as a Retailer →</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function togglePassword(id, btn) {
+  const inp = document.getElementById(id);
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+  else { inp.type = 'password'; btn.textContent = '👁'; }
+}
+</script>
+{% endblock %}

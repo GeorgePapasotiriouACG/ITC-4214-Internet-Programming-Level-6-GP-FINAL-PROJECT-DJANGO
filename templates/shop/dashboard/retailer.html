@@ -1,0 +1,209 @@
+{% extends "shop/base.html" %}
+{% block title %}Retailer Dashboard{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top:1.5rem;padding-bottom:3rem">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem">
+    <div>
+      <h1 style="font-size:1.75rem;font-weight:800;color:var(--dark)">Retailer Dashboard</h1>
+      {% if request.user.retailer_profile %}<p style="color:var(--text-light)">{{ request.user.retailer_profile.business_name }}</p>{% endif %}
+    </div>
+    <button class="btn btn-primary" onclick="document.getElementById('add-product-modal').classList.add('open')"
+            aria-haspopup="dialog" aria-controls="add-product-modal">
+      + Add Product
+    </button>
+  </div>
+
+  {% if pending_approval %}
+  <div class="alert alert-warning" style="margin-bottom:1.5rem" role="alert">
+    <span>⏳</span>
+    <span><strong>Pending Approval:</strong> Your retailer account is under review. Once approved, your products will be visible to customers.</span>
+  </div>
+  {% endif %}
+
+  <!-- Stats -->
+  <div class="stats-grid" style="margin-bottom:2rem">
+    <div class="stat-card">
+      <div class="stat-icon" aria-hidden="true">📦</div>
+      <div class="stat-value">{{ total_products }}</div>
+      <div class="stat-label">Total Products</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" aria-hidden="true">✅</div>
+      <div class="stat-value">{{ active_products }}</div>
+      <div class="stat-label">Active & Live</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" aria-hidden="true">🕐</div>
+      <div class="stat-value">{{ pending_products }}</div>
+      <div class="stat-label">Awaiting Approval</div>
+    </div>
+  </div>
+
+  <!-- Products Table -->
+  <div class="card" style="padding:0;overflow:hidden">
+    <div style="padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <h2 style="font-weight:700;font-size:1rem;color:var(--dark)">My Products</h2>
+    </div>
+    {% if my_products %}
+    <div style="overflow-x:auto">
+      <table class="admin-table" role="table" aria-label="Your products">
+        <thead>
+          <tr>
+            <th scope="col">Product</th>
+            <th scope="col">Category</th>
+            <th scope="col">Price</th>
+            <th scope="col">Stock</th>
+            <th scope="col">Status</th>
+            <th scope="col"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for product in my_products %}
+          <tr>
+            <td>
+              <div style="display:flex;align-items:center;gap:.75rem">
+                {% if product.image %}
+                  <img src="{{ product.image.url }}" alt="{{ product.name }}" style="width:40px;height:40px;object-fit:cover;border-radius:var(--radius-sm)" loading="lazy">
+                {% else %}
+                  <div style="width:40px;height:40px;background:var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center" aria-hidden="true">📦</div>
+                {% endif %}
+                <div>
+                  <div style="font-weight:600">{{ product.name }}</div>
+                  <div style="font-size:.75rem;color:var(--text-light)">SKU: {{ product.sku }}</div>
+                </div>
+              </div>
+            </td>
+            <td>{{ product.category.name }}</td>
+            <td>
+              {% if product.is_on_sale %}
+                <span style="color:var(--error);font-weight:700">${{ product.sale_price }}</span>
+                <span style="color:var(--text-light);text-decoration:line-through;font-size:.8rem">${{ product.price }}</span>
+              {% else %}
+                <strong>${{ product.price }}</strong>
+              {% endif %}
+            </td>
+            <td>
+              <span style="color:{% if product.stock > 10 %}var(--success){% elif product.stock > 0 %}var(--warning){% else %}var(--error){% endif %};font-weight:600">
+                {{ product.stock }}
+              </span>
+            </td>
+            <td>
+              {% if not product.is_approved %}
+                <span class="status-badge" style="background:#FEF3C7;color:#92400E">Pending</span>
+              {% elif product.is_active %}
+                <span class="status-badge status-delivered">Active</span>
+              {% else %}
+                <span class="status-badge status-cancelled">Inactive</span>
+              {% endif %}
+            </td>
+            <td>
+              <div style="display:flex;gap:.5rem">
+                <a href="{% url 'shop:retailer_edit_product' product.pk %}" class="btn btn-ghost btn-sm">Edit</a>
+                <form method="post" action="{% url 'shop:retailer_delete_product' product.pk %}"
+                      onsubmit="return confirm('Delete {{ product.name|escapejs }}?')">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm" style="background:var(--error);color:#fff">Delete</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:3rem">
+      <p>You haven't added any products yet.</p>
+      <button class="btn btn-primary" onclick="document.getElementById('add-product-modal').classList.add('open')">Add Your First Product</button>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Add Product Modal -->
+<div id="add-product-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title"
+     onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="modal-title" class="modal-title">Add New Product</h2>
+      <button class="modal-close" onclick="document.getElementById('add-product-modal').classList.remove('open')" aria-label="Close">✕</button>
+    </div>
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+      <input type="hidden" name="add_product" value="1">
+
+      <div class="form-group">
+        <label class="form-label" for="{{ product_form.name.id_for_label }}">Product Name <span class="required">*</span></label>
+        {{ product_form.name }}
+        {% if product_form.name.errors %}<div class="form-error">{{ product_form.name.errors.0 }}</div>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="{{ product_form.category.id_for_label }}">Category <span class="required">*</span></label>
+          {{ product_form.category }}
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="{{ product_form.brand.id_for_label }}">Brand</label>
+          {{ product_form.brand }}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="{{ product_form.short_description.id_for_label }}">Short Description</label>
+        {{ product_form.short_description }}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="{{ product_form.description.id_for_label }}">Full Description <span class="required">*</span></label>
+        {{ product_form.description }}
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="{{ product_form.price.id_for_label }}">Price ($) <span class="required">*</span></label>
+          {{ product_form.price }}
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="{{ product_form.sale_price.id_for_label }}">Sale Price ($)</label>
+          {{ product_form.sale_price }}
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="{{ product_form.stock.id_for_label }}">Stock <span class="required">*</span></label>
+          {{ product_form.stock }}
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="{{ product_form.color.id_for_label }}">Color</label>
+          {{ product_form.color }}
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="{{ product_form.size.id_for_label }}">Sizes</label>
+          {{ product_form.size }}
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="{{ product_form.tags.id_for_label }}">Tags</label>
+          {{ product_form.tags }}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="{{ product_form.image.id_for_label }}">Product Image</label>
+        {{ product_form.image }}
+      </div>
+
+      <div style="display:flex;gap:.75rem;justify-content:flex-end;padding-top:.75rem;border-top:1px solid var(--border)">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-product-modal').classList.remove('open')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Submit for Approval</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

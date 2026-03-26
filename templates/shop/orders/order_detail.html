@@ -1,0 +1,89 @@
+{% extends "shop/base.html" %}
+{% block title %}Order #{{ order.order_number }}{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top:1.5rem;padding-bottom:3rem;max-width:800px">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem">
+    <div>
+      <h1 style="font-size:1.5rem;font-weight:800;color:var(--dark)">Order #{{ order.order_number }}</h1>
+      <p style="color:var(--text-light)">Placed on {{ order.created_at|date:"N j, Y, g:i a" }}</p>
+    </div>
+    <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
+      <span class="status-badge status-{{ order.status }}">{{ order.get_status_display }}</span>
+      <a href="{% url 'shop:order_list' %}" class="btn btn-ghost btn-sm">← All Orders</a>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.5rem">
+    <div class="card">
+      <h2 class="card-title">Shipping Address</h2>
+      <p style="font-weight:700">{{ order.full_name }}</p>
+      <p>{{ order.address }}</p>
+      {% if order.city %}<p>{{ order.city }}{% if order.postal_code %}, {{ order.postal_code }}{% endif %}</p>{% endif %}
+      {% if order.country %}<p>{{ order.country }}</p>{% endif %}
+      {% if order.phone %}<p style="margin-top:.5rem;color:var(--text-light)">📞 {{ order.phone }}</p>{% endif %}
+      <p style="color:var(--text-light)">✉️ {{ order.email }}</p>
+    </div>
+    <div class="card">
+      <h2 class="card-title">Order Summary</h2>
+      <div class="summary-line">
+        <span>Subtotal</span><span>${{ order.total_amount }}</span>
+      </div>
+      <div class="summary-line">
+        <span>Shipping</span><span style="color:var(--success)">Free</span>
+      </div>
+      <div class="summary-line" style="font-weight:800;padding-top:.75rem;border-top:2px solid var(--border);margin-top:.5rem;font-size:1.1rem">
+        <span>Total</span><span style="color:var(--primary)">${{ order.total_amount }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="card-title">Items Ordered</h2>
+    <table class="order-table" role="table" aria-label="Order items">
+      <thead>
+        <tr>
+          <th scope="col">Product</th>
+          <th scope="col" style="text-align:center">Qty</th>
+          <th scope="col" style="text-align:right">Unit Price</th>
+          <th scope="col" style="text-align:right">Subtotal</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in order.items.all %}
+        <tr>
+          <td>
+            <div style="font-weight:600">
+              {% if item.product %}
+                <a href="{{ item.product.get_absolute_url }}" class="text-primary">{{ item.product_name }}</a>
+              {% else %}
+                {{ item.product_name }}
+              {% endif %}
+            </div>
+            {% if item.size %}<div style="font-size:.75rem;color:var(--text-light)">Size: {{ item.size }}</div>{% endif %}
+          </td>
+          <td style="text-align:center">{{ item.quantity }}</td>
+          <td style="text-align:right">${{ item.product_price }}</td>
+          <td style="text-align:right;font-weight:700">${{ item.get_subtotal }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="3" style="text-align:right;font-weight:700;padding-top:.75rem">Total</td>
+          <td style="text-align:right;font-weight:800;color:var(--primary);padding-top:.75rem">${{ order.total_amount }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  {% if order.notes %}
+  <div class="card" style="margin-top:1.25rem">
+    <h2 class="card-title">Order Notes</h2>
+    <p>{{ order.notes }}</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
