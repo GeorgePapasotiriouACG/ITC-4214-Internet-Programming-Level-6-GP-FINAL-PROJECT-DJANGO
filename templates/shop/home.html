@@ -1,0 +1,26 @@
+{% extends "shop/base.html" %}
+
+{% block content %}
+<h1 class="text-3xl font-bold mb-6">Products</h1>
+
+<div class="flex space-x-4 mb-6">
+    <a href="{% url 'shop:home' %}" class="px-3 py-1 bg-gray-200 rounded hover:bg-blue-500 hover:text-white">All</a>
+    {% for category in categories %}
+        <a href="{% url 'shop:category_products' category.id %}" class="px-3 py-1 bg-gray-200 rounded hover:bg-blue-500 hover:text-white">
+            {{ category.name }}
+        </a>
+    {% endfor %}
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+    {% for product in products %}
+    <div class="bg-white shadow rounded p-4 hover:shadow-lg transition">
+        <img src="{{ product.image.url }}" alt="{{ product.name }}" class="w-full h-48 object-cover rounded mb-3">
+        <h2 class="font-bold text-lg">{{ product.name }}</h2>
+        <p class="text-gray-600 mb-2">{{ product.description|truncatechars:60 }}</p>
+        <p class="font-bold text-blue-600 mb-2">${{ product.price }}</p>
+        <a href="{% url 'shop:place_order' %}" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Buy</a>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

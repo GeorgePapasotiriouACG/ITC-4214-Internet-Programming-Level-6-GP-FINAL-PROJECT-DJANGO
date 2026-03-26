@@ -1,0 +1,7 @@
+{% extends "shop/base.html" %}
+
+{% block content %}
+<h1 class="text-3xl font-bold mb-6 text-green-600">Order Placed Successfully!</h1>
+<p>Thank you for your order. We will contact you shortly.</p>
+<a href="{% url 'shop:home' %}" class="text-blue-500 hover:underline mt-4 inline-block">Back to Home</a>
+{% endblock %}

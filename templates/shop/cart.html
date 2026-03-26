@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>Your Cart</h1>
+
+{% for product in products %}
+
+<div class="cart-item">
+
+<h3>{{product.name}}</h3>
+
+<p>Qty: {{product.quantity}}</p>
+
+<p>{{product.total_price}} €</p>
+
+<a href="/remove/{{product.id}}/">Remove</a>
+
+</div>
+
+{% endfor %}
+
+<h2>Total: {{total}} €</h2>
+
+{% endblock %}
