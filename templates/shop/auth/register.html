@@ -12,11 +12,11 @@
       <!-- Role Tabs -->
       <div class="auth-tabs" role="tablist" aria-label="Registration type">
         <a href="{% url 'shop:register' %}" class="auth-tab {% if role != 'retailer' %}active{% endif %}"
-           role="tab" aria-selected="{{ role != 'retailer' }}">
+           role="tab" aria-selected="{% if role != 'retailer' %}true{% else %}false{% endif %}">
           🛍️ Customer
         </a>
         <a href="{% url 'shop:register' %}?role=retailer" class="auth-tab {% if role == 'retailer' %}active{% endif %}"
-           role="tab" aria-selected="{{ role == 'retailer' }}">
+           role="tab" aria-selected="{% if role == 'retailer' %}true{% else %}false{% endif %}">
           🏪 Retailer
         </a>
       </div>

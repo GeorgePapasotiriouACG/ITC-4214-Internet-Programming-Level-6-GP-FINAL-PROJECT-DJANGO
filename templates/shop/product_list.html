@@ -1,4 +1,5 @@
 {% extends "shop/base.html" %}
+{% load shop_tags %}
 {% block title %}{% if query %}Search: {{ query }}{% elif selected_category %}{{ selected_category.name }}{% else %}All Products{% endif %}{% endblock %}
 
 {% block content %}
@@ -85,10 +86,27 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <div class="filter-body">
-            <div class="price-range">
-              <input type="number" name="min_price" class="form-control" placeholder="Min $" value="{{ min_price }}" min="0" aria-label="Minimum price">
+            <div id="price-slider-wrapper" class="price-slider-wrapper">
+              <div class="price-range-labels">
+                <span data-display="min">${{ min_price|default:"0" }}</span>
+                <span data-display="max">${{ max_price|default:"5000" }}</span>
+              </div>
+              <div class="price-slider-track">
+                <div class="price-slider-range"></div>
+                <input type="range" class="price-slider-input" data-role="min"
+                       min="0" max="5000" step="10"
+                       value="{{ min_price|default:'0' }}"
+                       aria-label="Minimum price">
+                <input type="range" class="price-slider-input" data-role="max"
+                       min="0" max="5000" step="10"
+                       value="{{ max_price|default:'5000' }}"
+                       aria-label="Maximum price">
+              </div>
+            </div>
+            <div class="price-range-inputs">
+              <input type="number" name="min_price" class="form-control" placeholder="Min" value="{{ min_price }}" min="0" max="5000" aria-label="Minimum price value">
               <span aria-hidden="true">–</span>
-              <input type="number" name="max_price" class="form-control" placeholder="Max $" value="{{ max_price }}" min="0" aria-label="Maximum price">
+              <input type="number" name="max_price" class="form-control" placeholder="Max" value="{{ max_price }}" min="0" max="5000" aria-label="Maximum price value">
             </div>
           </div>
         </div>
@@ -152,17 +170,17 @@
         {% if products.has_other_pages %}
         <nav class="pagination" aria-label="Page navigation">
           {% if products.has_previous %}
-            <a href="?{% url_replace request 'page' products.previous_page_number %}" class="page-btn" aria-label="Previous page">‹</a>
+            <a href="?{% url_replace 'page' products.previous_page_number %}" class="page-btn" aria-label="Previous page">‹</a>
           {% endif %}
           {% for n in products.paginator.page_range %}
             {% if n == products.number %}
               <span class="page-btn active" aria-current="page" aria-label="Page {{ n }}">{{ n }}</span>
             {% elif n >= products.number|add:"-2" and n <= products.number|add:"2" %}
-              <a href="?{% url_replace request 'page' n %}" class="page-btn" aria-label="Page {{ n }}">{{ n }}</a>
+              <a href="?{% url_replace 'page' n %}" class="page-btn" aria-label="Page {{ n }}">{{ n }}</a>
             {% endif %}
           {% endfor %}
           {% if products.has_next %}
-            <a href="?{% url_replace request 'page' products.next_page_number %}" class="page-btn" aria-label="Next page">›</a>
+            <a href="?{% url_replace 'page' products.next_page_number %}" class="page-btn" aria-label="Next page">›</a>
           {% endif %}
         </nav>
         {% endif %}

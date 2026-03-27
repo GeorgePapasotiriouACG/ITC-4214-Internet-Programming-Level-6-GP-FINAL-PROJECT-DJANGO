@@ -72,17 +72,58 @@ function initDropdowns() {
   document.addEventListener('click', () => document.querySelectorAll('.dropdown-menu.open').forEach(m => m.classList.remove('open')));
 }
 
+// ── Dark Mode ───────────────────────────────────────────────
+function initDarkMode() {
+  const savedTheme = localStorage.getItem('trendmart-theme') || 'light';
+  if (savedTheme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+
+  function toggleDark() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const next = isDark ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('trendmart-theme', next);
+    document.querySelectorAll('[aria-label="Toggle dark mode"]').forEach(btn => {
+      btn.setAttribute('aria-pressed', String(!isDark));
+    });
+  }
+
+  document.getElementById('dark-mode-toggle')?.addEventListener('click', toggleDark);
+  document.getElementById('dark-mode-toggle-mobile')?.addEventListener('click', toggleDark);
+
+  const btn = document.getElementById('dark-mode-toggle');
+  if (btn) btn.setAttribute('aria-pressed', savedTheme === 'dark' ? 'true' : 'false');
+}
+
 // ── Mobile Nav ──────────────────────────────────────────────
 function initMobileNav() {
   const toggleBtn = document.getElementById('mobile-menu-btn');
   const mobileMenu = document.getElementById('mobile-menu');
+  const closeBtn = document.getElementById('mobile-menu-close');
+
+  function openMenu() {
+    mobileMenu.classList.add('open');
+    toggleBtn.setAttribute('aria-expanded', 'true');
+    toggleBtn.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    closeBtn?.focus();
+  }
+  function closeMenu() {
+    mobileMenu.classList.remove('open');
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    toggleBtn.classList.remove('open');
+    document.body.style.overflow = '';
+    toggleBtn?.focus();
+  }
+
   if (toggleBtn && mobileMenu) {
     toggleBtn.addEventListener('click', () => {
-      const expanded = toggleBtn.getAttribute('aria-expanded') === 'true';
-      toggleBtn.setAttribute('aria-expanded', !expanded);
-      mobileMenu.classList.toggle('open', !expanded);
+      mobileMenu.classList.contains('open') ? closeMenu() : openMenu();
     });
+    closeBtn?.addEventListener('click', closeMenu);
+    mobileMenu.addEventListener('click', e => { if (e.target === mobileMenu) closeMenu(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && mobileMenu.classList.contains('open')) closeMenu(); });
   }
+
   const searchToggle = document.getElementById('mobile-search-btn');
   const searchBar = document.getElementById('navbar-search');
   if (searchToggle && searchBar) {
@@ -386,6 +427,111 @@ function initSizeSelector() {
   });
 }
 
+// ── Scroll to Top ───────────────────────────────────────────
+function initScrollToTop() {
+  const btn = document.getElementById('scroll-top-btn');
+  if (!btn) return;
+  window.addEventListener('scroll', () => {
+    btn.classList.toggle('visible', window.scrollY > 400);
+  }, { passive: true });
+  btn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+}
+
+// ── Price Range Slider ──────────────────────────────────────
+function initPriceSlider() {
+  const wrapper = document.getElementById('price-slider-wrapper');
+  if (!wrapper) return;
+  const minInput = wrapper.querySelector('[data-role="min"]');
+  const maxInput = wrapper.querySelector('[data-role="max"]');
+  const rangeEl = wrapper.querySelector('.price-slider-range');
+  const minDisplay = wrapper.querySelector('[data-display="min"]');
+  const maxDisplay = wrapper.querySelector('[data-display="max"]');
+  const formMin = document.querySelector('input[name="min_price"]');
+  const formMax = document.querySelector('input[name="max_price"]');
+
+  if (!minInput || !maxInput) return;
+
+  const absMin = parseFloat(minInput.min) || 0;
+  const absMax = parseFloat(maxInput.max) || 5000;
+
+  function updateSlider() {
+    let min = parseFloat(minInput.value);
+    let max = parseFloat(maxInput.value);
+    if (min > max) { const t = min; min = max; max = t; minInput.value = min; maxInput.value = max; }
+    const leftPct = ((min - absMin) / (absMax - absMin)) * 100;
+    const rightPct = ((max - absMin) / (absMax - absMin)) * 100;
+    rangeEl.style.left = leftPct + '%';
+    rangeEl.style.width = (rightPct - leftPct) + '%';
+    if (minDisplay) minDisplay.textContent = '$' + Math.round(min);
+    if (maxDisplay) maxDisplay.textContent = '$' + Math.round(max);
+    if (formMin) formMin.value = Math.round(min);
+    if (formMax) formMax.value = Math.round(max);
+  }
+
+  minInput.addEventListener('input', updateSlider);
+  maxInput.addEventListener('input', updateSlider);
+  updateSlider();
+}
+
+// ── Quick View Modal ────────────────────────────────────────
+function initQuickView() {
+  const overlay = document.getElementById('quick-view-overlay');
+  const closeBtn = document.getElementById('quick-view-close');
+  const body = document.getElementById('quick-view-body');
+  const title = document.getElementById('quick-view-title');
+  if (!overlay) return;
+
+  function openQuickView(slug, productName) {
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    if (title) title.textContent = productName || 'Product Details';
+    if (body) body.innerHTML = `<div class="quick-view-img"><div class="skeleton skeleton-img"></div></div><div><div class="skeleton skeleton-text medium" style="margin-bottom:8px"></div><div class="skeleton skeleton-text short" style="margin-bottom:16px"></div><div class="skeleton skeleton-text medium" style="height:80px"></div></div>`;
+
+    fetch(`/products/${slug}/?quickview=1`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(r => r.text())
+      .then(html => {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const imgEl = doc.querySelector('.product-detail-img img, .product-images img');
+        const priceEl = doc.querySelector('.price-current');
+        const brandEl = doc.querySelector('.product-detail-brand');
+        const descEl = doc.querySelector('.product-detail-description');
+        const ratingEl = doc.querySelector('.avg-rating-display');
+        const detailUrl = `/products/${slug}/`;
+
+        if (body) body.innerHTML = `
+          <div class="quick-view-img">${imgEl ? `<img src="${imgEl.src}" alt="${imgEl.alt}" loading="lazy">` : '<div class="skeleton skeleton-img"></div>'}</div>
+          <div>
+            ${brandEl ? `<p style="color:var(--primary);font-weight:700;font-size:.8125rem;text-transform:uppercase;margin-bottom:.5rem">${brandEl.textContent.trim()}</p>` : ''}
+            ${priceEl ? `<p style="font-size:1.75rem;font-weight:900;color:var(--dark);margin-bottom:.75rem">${priceEl.textContent.trim()}</p>` : ''}
+            ${ratingEl ? `<p style="color:var(--secondary);margin-bottom:.75rem">★ ${ratingEl.textContent.trim()}</p>` : ''}
+            ${descEl ? `<p style="color:var(--text-light);font-size:.9375rem;line-height:1.7;margin-bottom:1.25rem">${descEl.textContent.trim().substring(0, 200)}${descEl.textContent.trim().length > 200 ? '…' : ''}</p>` : ''}
+            <a href="${detailUrl}" class="btn btn-primary" style="margin-bottom:.75rem;display:inline-block">View Full Details</a>
+          </div>`;
+      })
+      .catch(() => {
+        if (body) body.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:2rem"><p>Could not load product details.</p><a href="/products/${slug}/" class="btn btn-primary" style="margin-top:1rem">View Product</a></div>`;
+      });
+  }
+
+  function closeQuickView() {
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  closeBtn?.addEventListener('click', closeQuickView);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeQuickView(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay.classList.contains('open')) closeQuickView(); });
+
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('[data-quickview]');
+    if (btn) {
+      e.preventDefault();
+      openQuickView(btn.dataset.quickview, btn.dataset.productName);
+    }
+  });
+}
+
 // ── Sticky category highlight ───────────────────────────────
 function initActiveCategoryNav() {
   const path = window.location.pathname;
@@ -405,9 +551,11 @@ function initDjangoMessages() {
 
 // ── Init all ────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  initDarkMode();
   Toast.init();
   initDropdowns();
   initMobileNav();
+  initScrollToTop();
   initSearchAutocomplete();
   initCart();
   initWishlist();
@@ -416,6 +564,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initAIChat();
   initFilterCollapse();
   initSizeSelector();
+  initPriceSlider();
+  initQuickView();
   initActiveCategoryNav();
   initDjangoMessages();
 });

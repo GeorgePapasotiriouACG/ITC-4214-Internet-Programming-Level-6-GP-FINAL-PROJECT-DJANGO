@@ -15,6 +15,10 @@
     {% if not product.is_in_stock %}
       <span class="product-badge badge-out" style="top:auto;bottom:.75rem;left:.75rem">Out of Stock</span>
     {% endif %}
+    <button class="product-card-quickview" data-quickview="{{ product.slug }}" data-product-name="{{ product.name }}" aria-label="Quick view {{ product.name }}">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      Quick View
+    </button>
     {% if user.is_authenticated %}
     <form method="post" action="{% url 'shop:toggle_wishlist' %}" class="wishlist-form" style="display:contents">
       {% csrf_token %}

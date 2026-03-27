@@ -557,18 +557,25 @@ def remove_from_cart(request, item_id):
 
 @require_POST
 def update_cart(request, item_id):
+    import json as _json
     cart = get_or_create_cart(request)
     item = get_object_or_404(CartItem, id=item_id, cart=cart)
-    qty = int(request.POST.get('quantity', 1))
+    try:
+        body = _json.loads(request.body)
+        qty = int(body.get('quantity', 1))
+    except Exception:
+        qty = int(request.POST.get('quantity', 1))
     if qty <= 0:
         item.delete()
+        subtotal = '0'
     else:
         item.quantity = qty
         item.save()
+        subtotal = str(item.get_subtotal())
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return JsonResponse({
             'success': True,
-            'subtotal': str(item.get_subtotal()) if qty > 0 else '0',
+            'subtotal': subtotal,
             'cart_count': cart.get_item_count(),
             'cart_total': str(cart.get_total()),
         })
@@ -627,7 +634,8 @@ def checkout(request):
     else:
         form = CheckoutForm(initial=initial)
 
-    return render(request, 'shop/orders/checkout.html', {'form': form, 'cart': cart})
+    items = cart.items.select_related('product').all()
+    return render(request, 'shop/orders/checkout.html', {'form': form, 'cart': cart, 'items': items})
 
 
 def order_success(request, order_number):
@@ -806,11 +814,10 @@ def admin_dashboard(request):
         'total_products': Product.objects.count(),
         'total_orders': Order.objects.count(),
         'total_users': User.objects.count(),
-        'total_categories': Category.objects.count(),
+        'total_retailers': RetailerProfile.objects.count(),
         'recent_orders': Order.objects.select_related('user').order_by('-created_at')[:10],
         'pending_retailers': RetailerProfile.objects.filter(is_approved=False).select_related('user'),
         'pending_products': Product.objects.filter(is_approved=False).select_related('retailer')[:10],
-        'top_products': Product.objects.filter(is_active=True).order_by('-views_count')[:5],
     }
     return render(request, 'shop/admin_panel/dashboard.html', context)
 
@@ -818,12 +825,21 @@ def admin_dashboard(request):
 @admin_required
 def admin_products(request):
     products = Product.objects.select_related('category', 'brand', 'retailer').all()
-    q = request.GET.get('q', '')
-    if q:
-        products = products.filter(Q(name__icontains=q) | Q(sku__icontains=q))
+    query = request.GET.get('q', '')
+    status_filter = request.GET.get('status', '')
+    if query:
+        products = products.filter(Q(name__icontains=query) | Q(sku__icontains=query))
+    if status_filter == 'pending':
+        products = products.filter(is_approved=False)
+    elif status_filter == 'active':
+        products = products.filter(is_approved=True, is_active=True)
+    elif status_filter == 'inactive':
+        products = products.filter(is_active=False)
     paginator = Paginator(products, 20)
     page = paginator.get_page(request.GET.get('page', 1))
-    return render(request, 'shop/admin_panel/products.html', {'products': page, 'q': q})
+    return render(request, 'shop/admin_panel/products.html', {
+        'products': page, 'query': query, 'status_filter': status_filter
+    })
 
 
 @admin_required
@@ -860,8 +876,13 @@ def admin_product_approve(request, pk):
 
 @admin_required
 def admin_categories(request):
+    edit_category = None
+    edit_pk = request.GET.get('edit')
+    if edit_pk:
+        edit_category = get_object_or_404(Category, pk=edit_pk)
+
     if request.method == 'POST':
-        pk = request.POST.get('pk')
+        pk = request.POST.get('category_id')
         if pk:
             cat = get_object_or_404(Category, pk=pk)
             form = CategoryForm(request.POST, request.FILES, instance=cat)
@@ -871,10 +892,14 @@ def admin_categories(request):
             form.save()
             messages.success(request, "Category saved.")
             return redirect('shop:admin_categories')
+    elif edit_category:
+        form = CategoryForm(instance=edit_category)
     else:
         form = CategoryForm()
     categories = Category.objects.all()
-    return render(request, 'shop/admin_panel/categories.html', {'categories': categories, 'form': form})
+    return render(request, 'shop/admin_panel/categories.html', {
+        'categories': categories, 'form': form, 'edit_category': edit_category
+    })
 
 
 @admin_required
@@ -889,12 +914,23 @@ def admin_category_delete(request, pk):
 @admin_required
 def admin_users(request):
     users = User.objects.select_related('profile').order_by('-date_joined')
-    q = request.GET.get('q', '')
-    if q:
-        users = users.filter(Q(username__icontains=q) | Q(email__icontains=q))
+    query = request.GET.get('q', '')
+    role_filter = request.GET.get('role', '')
+    if query:
+        users = users.filter(Q(username__icontains=query) | Q(email__icontains=query) | Q(first_name__icontains=query))
+    if role_filter == 'retailer':
+        users = users.filter(profile__role='retailer')
+    elif role_filter == 'admin':
+        users = users.filter(Q(profile__role='admin') | Q(is_staff=True))
+    elif role_filter == 'customer':
+        users = users.filter(profile__role='customer')
     paginator = Paginator(users, 20)
     page = paginator.get_page(request.GET.get('page', 1))
-    return render(request, 'shop/admin_panel/users.html', {'users': page, 'q': q})
+    pending_retailers = RetailerProfile.objects.filter(is_approved=False).select_related('user')
+    return render(request, 'shop/admin_panel/users.html', {
+        'users': page, 'query': query, 'role_filter': role_filter,
+        'pending_retailers': pending_retailers,
+    })
 
 
 @admin_required
@@ -909,9 +945,17 @@ def admin_approve_retailer(request, user_id):
 @admin_required
 def admin_orders(request):
     orders = Order.objects.select_related('user').prefetch_related('items').all()
+    query = request.GET.get('q', '')
+    status_filter = request.GET.get('status', '')
+    if query:
+        orders = orders.filter(Q(order_number__icontains=query) | Q(full_name__icontains=query) | Q(email__icontains=query))
+    if status_filter:
+        orders = orders.filter(status=status_filter)
     paginator = Paginator(orders, 20)
     page = paginator.get_page(request.GET.get('page', 1))
-    return render(request, 'shop/admin_panel/orders.html', {'orders': page})
+    return render(request, 'shop/admin_panel/orders.html', {
+        'orders': page, 'query': query, 'status_filter': status_filter
+    })
 
 
 @admin_required
