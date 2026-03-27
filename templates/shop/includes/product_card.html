@@ -4,7 +4,7 @@
       {% if product.image %}
         <img src="{{ product.image.url }}" alt="{{ product.name }}" loading="lazy">
       {% else %}
-        <img src="https://placehold.co/400x300/e2d9f3/7C3AED?text={{ product.name|urlencode }}" alt="{{ product.name }}">
+        <img src="https://picsum.photos/seed/{{ product.slug }}/400/300" alt="{{ product.name }}" loading="lazy">
       {% endif %}
     </a>
     {% if product.is_on_sale %}

@@ -737,73 +737,215 @@ def ai_assistant(request):
 
 
 def _ai_response(request, msg):
-    greetings = ('hello', 'hi', 'hey', 'good morning', 'good afternoon')
-    if any(g in msg for g in greetings):
+    import re
+
+    def products_to_links(qs):
+        return '\n'.join([
+            f"🔗[{p.name} — ${p.get_effective_price()}](/products/{p.slug}/)"
+            for p in qs
+        ])
+
+    # ── Greetings ────────────────────────────────────────────
+    if any(g in msg for g in ('hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening', 'howdy', 'sup')):
         name = request.user.first_name if request.user.is_authenticated else 'there'
-        return f"Hi {name}! 👋 Welcome to TrendMart! I can help you find products, track orders, or answer any questions. What are you looking for today?"
+        return (f"Hi {name}! 👋 Welcome to **TrendMart**!\n\n"
+                f"I can help you:\n"
+                f"• 🔍 Find & compare products\n"
+                f"• 🏷️ Discover current deals\n"
+                f"• 📦 Track your orders\n"
+                f"• 💡 Get personalised recommendations\n\n"
+                f"What are you shopping for today?")
 
-    if any(w in msg for w in ('recommend', 'suggestion', 'suggest', 'what should')):
+    # ── Personalised recommendations ─────────────────────────
+    if any(w in msg for w in ('recommend', 'suggestion', 'suggest', 'what should', 'what do you suggest', 'best for me', 'personaliz', 'for me')):
         if request.user.is_authenticated:
-            recs = get_recommendations(request.user, limit=3)
+            recs = get_recommendations(request.user, limit=4)
             if recs:
-                names = ', '.join([p.name for p in list(recs)[:3]])
-                return f"Based on your browsing history, I think you'd love: **{names}**. Would you like me to show you more details on any of these?"
-        top = Product.objects.filter(is_active=True, is_approved=True).order_by('-views_count')[:3]
-        names = ', '.join([p.name for p in top])
-        return f"Our most popular products right now are: **{names}**. Type a product name to search for it!"
+                links = products_to_links(list(recs)[:4])
+                return f"Based on your browsing history, here are picks I think you'll love:\n\n{links}\n\nWant me to narrow these down by category or budget?"
+        top = Product.objects.filter(is_active=True, is_approved=True).order_by('-views_count')[:4]
+        links = products_to_links(top)
+        return f"Here are our **most popular products** right now:\n\n{links}\n\nLog in for personalised recommendations based on your taste! 😊"
 
-    if any(w in msg for w in ('order', 'my order', 'track', 'shipping', 'delivery')):
+    # ── Order tracking ───────────────────────────────────────
+    if any(w in msg for w in ('order', 'my order', 'track', 'shipping', 'delivery', 'dispatched', 'sent', 'arrive', 'when will')):
         if request.user.is_authenticated:
-            recent = Order.objects.filter(user=request.user).first()
-            if recent:
-                return f"Your most recent order **#{recent.order_number}** has status: **{recent.get_status_display()}**. You can view all your orders in your dashboard."
-        return "To track your orders, please log in and visit your dashboard. I can help you find the login page!"
+            orders = Order.objects.filter(user=request.user).order_by('-created_at')[:3]
+            if orders.exists():
+                lines = '\n'.join([f"• Order **#{o.order_number}** → **{o.get_status_display()}** (${o.total_amount:.2f})" for o in orders])
+                return f"Here are your recent orders:\n\n{lines}\n\nView all orders and full details in your **[Dashboard](/dashboard/)**."
+            return "You don't have any orders yet! Browse our products and start shopping 🛍️"
+        return "Please **[log in](/login/)** to track your orders. Your order history and live status updates will be there waiting for you!"
 
-    if any(w in msg for w in ('cart', 'basket', 'added')):
+    # ── Cart summary ─────────────────────────────────────────
+    if any(w in msg for w in ('cart', 'basket', 'bag', 'checkout', 'how much', 'total')):
         cart = get_or_create_cart(request)
         count = cart.get_item_count()
         total = cart.get_total()
-        return f"You have **{count} item(s)** in your cart worth **${total:.2f}**. Ready to checkout?"
+        if count == 0:
+            return "Your cart is empty! 🛒 Browse our products and add something you love.\n\n🔗[Browse All Products](/products/)"
+        return f"You have **{count} item(s)** in your cart totalling **${total:.2f}**.\n\n🔗[View Cart & Checkout](/cart/)\n\nNeed help finding anything else?"
 
-    if any(w in msg for w in ('sale', 'discount', 'offer', 'deal', 'cheap', 'price')):
-        sales = Product.objects.filter(is_active=True, is_approved=True, sale_price__isnull=False)[:3]
+    # ── Price / budget queries ───────────────────────────────
+    budget_match = re.search(r'under\s*\$?(\d+)', msg) or re.search(r'less than\s*\$?(\d+)', msg) or re.search(r'below\s*\$?(\d+)', msg)
+    if budget_match or any(w in msg for w in ('budget', 'affordable', 'cheap', 'cheapest', 'low price')):
+        budget = float(budget_match.group(1)) if budget_match else 100
+        products = Product.objects.filter(
+            is_active=True, is_approved=True, price__lte=budget
+        ).order_by('price')[:5]
+        if products.exists():
+            links = products_to_links(products)
+            return f"Great picks under **${budget:.0f}**:\n\n{links}"
+        return f"No products found under ${budget:.0f} right now. Try a higher budget or check our **[deals page](/products/?sort=price_asc)**."
+
+    # ── Deals and discounts ──────────────────────────────────
+    if any(w in msg for w in ('sale', 'discount', 'offer', 'deal', 'hot deal', 'promo', 'coupon', 'bargain', 'best price')):
+        sales = Product.objects.filter(is_active=True, is_approved=True, sale_price__isnull=False).order_by('?')[:5]
         if sales:
-            names = ', '.join([f"{p.name} ({p.get_discount_percentage()}% off)" for p in sales])
-            return f"Great news! We have some amazing deals: **{names}**. Head to our Products page to see all discounts!"
-        return "Check out our Products page for the latest deals and discounts!"
+            links = '\n'.join([f"🔗[{p.name} — ${p.sale_price} ~~${p.price}~~ ({p.get_discount_percentage()}% off)](/products/{p.slug}/)" for p in sales])
+            return f"🔥 **Today's hottest deals:**\n\n{links}\n\nMore deals available in the **[Products page](/products/)**!"
+        return "Check our **[Products page](/products/)** for the latest deals and discounts!"
 
-    if any(w in msg for w in ('return', 'refund', 'exchange', 'warranty')):
-        return "TrendMart offers a hassle-free return policy. You can return any item within 30 days of purchase. For warranty claims, please contact our support team through the Help section."
+    # ── Brand search ─────────────────────────────────────────
+    from .models import Brand
+    brand_names = list(Brand.objects.filter(is_active=True).values_list('name', flat=True))
+    matched_brand = next((b for b in brand_names if b.lower() in msg), None)
+    if matched_brand or any(w in msg for w in ('brand', 'apple products', 'samsung products', 'nike products')):
+        if matched_brand:
+            products = Product.objects.filter(
+                is_active=True, is_approved=True, brand__name__iexact=matched_brand
+            )[:5]
+            if products.exists():
+                links = products_to_links(products)
+                return f"Here are **{matched_brand}** products available on TrendMart:\n\n{links}"
+        return "We carry many top brands including Apple, Samsung, Nike, Adidas, Sony, and more! Which brand are you interested in?"
 
-    if any(w in msg for w in ('account', 'profile', 'register', 'sign up', 'login')):
+    # ── Category browse ──────────────────────────────────────
+    cat_keywords = {
+        'electronics': 'Electronics', 'phone': 'Smartphones', 'smartphone': 'Smartphones',
+        'laptop': 'Laptops', 'computer': 'Laptops', 'headphone': 'Headphones', 'earphone': 'Headphones',
+        'tablet': 'Tablets', 'fashion': 'Fashion', 'clothing': "Men's Clothing",
+        'shoe': 'Shoes', 'sneaker': 'Shoes', 'watch': 'Accessories',
+        'home': 'Home & Garden', 'furniture': 'Furniture', 'kitchen': 'Kitchen',
+        'sport': 'Sports & Outdoors', 'fitness': 'Fitness', 'gym': 'Fitness',
+        'beauty': 'Beauty & Health', 'skincare': 'Skincare', 'makeup': 'Makeup',
+        'game': 'Board Games', 'lego': 'Action Figures', 'toy': 'Toys & Games',
+        'camera': 'Cameras', 'photo': 'Cameras', 'smart home': 'Smart Home',
+        'pet': 'Pet Supplies', 'book': 'Books', 'car': 'Car Accessories',
+    }
+    for kw, cat_name in cat_keywords.items():
+        if kw in msg:
+            products = Product.objects.filter(
+                is_active=True, is_approved=True,
+                category__name__iexact=cat_name
+            )[:5]
+            if not products.exists():
+                products = Product.objects.filter(
+                    is_active=True, is_approved=True,
+                    category__name__icontains=kw
+                )[:5]
+            if products.exists():
+                links = products_to_links(products)
+                return f"Here are popular **{cat_name}** products:\n\n{links}\n\nBrowse the full **[{cat_name}](/products/)** collection!"
+            break
+
+    # ── Wishlist ─────────────────────────────────────────────
+    if any(w in msg for w in ('wishlist', 'wish list', 'saved', 'favorite', 'favourite')):
         if request.user.is_authenticated:
-            return f"You're already logged in as **{request.user.username}**! You can update your profile in the Account section."
-        return "You can create a free account to enjoy personalized recommendations, order tracking, and a wishlist. Click 'Sign Up' in the top menu to get started!"
+            from .models import WishlistItem
+            count = WishlistItem.objects.filter(user=request.user).count()
+            if count:
+                return f"You have **{count} item(s)** saved in your wishlist! 💜\n\n🔗[View Wishlist](/wishlist/)"
+            return "Your wishlist is empty. Click the ❤️ heart on any product to save it for later!"
+        return "Log in to create your personal wishlist and save products for later!\n\n🔗[Log in](/login/)"
 
-    if any(w in msg for w in ('help', 'support', 'contact', 'problem', 'issue')):
-        return "I'm here to help! You can ask me about products, orders, your account, deals, or anything else TrendMart-related. For complex issues, our team is available at support@trendmart.com."
+    # ── Compare products ─────────────────────────────────────
+    if any(w in msg for w in ('compare', 'difference', 'better', 'vs', 'versus', 'which is better', 'which should i')):
+        return ("I can help you compare products! 🔍\n\n"
+                "Tell me the two products you'd like to compare — for example:\n"
+                "**iPhone 15 Pro vs Samsung Galaxy S24 Ultra**\n\n"
+                "Or describe what matters to you (camera, battery, price) and I'll suggest the best match!")
 
-    if any(w in msg for w in ('thank', 'thanks', 'bye', 'goodbye')):
-        return "You're welcome! Happy shopping at TrendMart! 🛍️ Come back anytime you need help."
+    # ── Shipping / delivery info ─────────────────────────────
+    if any(w in msg for w in ('how long', 'when', 'estimated', 'arrive', 'dispatch')):
+        return ("📦 **Shipping Information:**\n\n"
+                "• Standard delivery: **3–5 business days**\n"
+                "• Express delivery: **1–2 business days**\n"
+                "• Free shipping on orders over **$50**\n\n"
+                "Track your existing orders in your **[Dashboard](/dashboard/)**.")
 
-    products = Product.objects.filter(
-        is_active=True, is_approved=True, name__icontains=msg
-    )[:3]
+    # ── Return / refund ──────────────────────────────────────
+    if any(w in msg for w in ('return', 'refund', 'exchange', 'warranty', 'broken', 'damaged', 'faulty', 'wrong item')):
+        return ("↩️ **TrendMart Return Policy:**\n\n"
+                "• **30-day** hassle-free returns on all items\n"
+                "• Items must be unused and in original packaging\n"
+                "• Warranty claims handled within **5 business days**\n"
+                "• Damaged/faulty items replaced free of charge\n\n"
+                "Contact our support team at **support@trendmart.com** for assistance.")
+
+    # ── Account / profile ────────────────────────────────────
+    if any(w in msg for w in ('account', 'profile', 'register', 'sign up', 'signup', 'login', 'log in', 'password', 'forgot')):
+        if request.user.is_authenticated:
+            return (f"You're logged in as **{request.user.first_name or request.user.username}** 👤\n\n"
+                    f"• 🔗[Edit Profile](/profile/)\n"
+                    f"• 🔗[My Dashboard](/dashboard/)\n"
+                    f"• 🔗[Order History](/orders/)")
+        return ("Create a free TrendMart account to unlock:\n\n"
+                "✅ Personalised recommendations\n"
+                "✅ Order tracking & history\n"
+                "✅ Wishlist & saved searches\n"
+                "✅ Exclusive member deals\n\n"
+                "🔗[Register Now](/register/) or 🔗[Log In](/login/)")
+
+    # ── Help & support ───────────────────────────────────────
+    if any(w in msg for w in ('help', 'support', 'contact', 'problem', 'issue', 'stuck', "can't", "cannot", 'error')):
+        return ("I'm here to help! 🤝 Here's what I can assist with:\n\n"
+                "• **Product search** — describe what you want\n"
+                "• **Order issues** — tracking, returns, refunds\n"
+                "• **Account help** — login, profile, password\n"
+                "• **Deals & recommendations** — just ask!\n\n"
+                "For complex issues: **support@trendmart.com**\n"
+                "Response time: within **24 hours**")
+
+    # ── Thank you / farewell ─────────────────────────────────
+    if any(w in msg for w in ('thank', 'thanks', 'ty', 'cheers', 'bye', 'goodbye', 'see you', 'cya')):
+        name = request.user.first_name if request.user.is_authenticated else ''
+        return f"You're welcome{', ' + name if name else ''}! 🛍️ Happy shopping at **TrendMart**! Come back anytime — I'm always here to help."
+
+    # ── Compliments / misc ───────────────────────────────────
+    if any(w in msg for w in ('amazing', 'great', 'awesome', 'love', 'perfect', 'excellent', 'fantastic')):
+        return "Thank you so much! 😊 That really means a lot. Now, is there anything I can help you find today?"
+
+    # ── Product name search (flexible) ──────────────────────
+    words = [w for w in msg.split() if len(w) > 2]
+    products = Product.objects.filter(is_active=True, is_approved=True).filter(
+        Q(name__icontains=msg) | Q(brand__name__icontains=msg) | Q(short_description__icontains=msg)
+    )[:4]
+    if not products.exists() and words:
+        q = Q()
+        for w in words[:3]:
+            q |= Q(name__icontains=w) | Q(brand__name__icontains=w)
+        products = Product.objects.filter(is_active=True, is_approved=True).filter(q)[:4]
+
     if products.exists():
-        result = ', '.join([f"**{p.name}** (${p.get_effective_price()})" for p in products])
-        return f"I found some products matching your search: {result}. Click on any product for full details!"
+        links = products_to_links(products)
+        return f"I found these products for you:\n\n{links}\n\nNeed more options? Try **[searching here](/search/?q={msg.replace(' ', '+')})** or tell me more about what you're looking for!"
 
-    categories = Category.objects.filter(is_active=True, name__icontains=msg)[:2]
-    if categories.exists():
-        cat_names = ', '.join([c.name for c in categories])
-        return f"I found the category **{cat_names}**! You can browse it from the navigation menu or the Products page."
+    # ── Category name fallback ───────────────────────────────
+    cats = Category.objects.filter(is_active=True, name__icontains=msg)[:2]
+    if cats.exists():
+        cat_links = '\n'.join([f"🔗[Browse {c.name}](/products/)" for c in cats])
+        return f"Found the **{cats.first().name}** category!\n\n{cat_links}"
 
-    return ("I'm not sure I understood that. Try asking me about:\n"
-            "• Product recommendations 🛍️\n"
-            "• Your orders 📦\n"
-            "• Current deals & discounts 🏷️\n"
-            "• Account & profile 👤\n"
-            "• Return policy ↩️")
+    # ── Fallback ─────────────────────────────────────────────
+    return ("I didn't quite catch that, but I'm here to help! 🤔\n\n"
+            "Try asking me:\n"
+            "• **\"Show me laptops under $1000\"**\n"
+            "• **\"What's on sale today?\"**\n"
+            "• **\"Recommend me something for gaming\"**\n"
+            "• **\"Track my order\"**\n"
+            "• **\"Compare iPhone vs Samsung\"**\n\n"
+            "Or just type a product name and I'll find it for you!")
 
 
 # ─── Admin Panel ──────────────────────────────────────────────────────────────

@@ -211,9 +211,45 @@ input, textarea, select { font-family: inherit; }
   background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 50%, var(--accent) 100%);
   color: #fff; padding: 5rem 1.5rem; text-align: center; position: relative; overflow: hidden;
 }
-.hero::before {
-  content: ''; position: absolute; inset: 0;
-  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Ccircle cx='30' cy='30' r='20'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+.hero-canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 0;
+}
+
+/* ── Hero Button Animations ─────────────────────────────── */
+.btn-hero-explore {
+  position: relative; overflow: hidden;
+}
+.btn-hero-explore::after {
+  content: ''; position: absolute; top: 0; left: -100%;
+  width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(124,58,237,.25), transparent);
+  transform: skewX(-20deg);
+  animation: shimmer-sweep 3s ease-in-out infinite;
+}
+@keyframes shimmer-sweep {
+  0% { left: -100%; }
+  40%, 100% { left: 160%; }
+}
+.btn-hero-explore:hover {
+  transform: translateY(-3px) scale(1.04);
+  box-shadow: 0 12px 28px rgba(0,0,0,.25);
+}
+.btn-hero-explore:active { transform: translateY(-1px) scale(1.01); }
+
+.btn-hero-join {
+  position: relative;
+  animation: pulse-border 2.5s ease-in-out infinite;
+}
+@keyframes pulse-border {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,.4), 0 4px 12px rgba(0,0,0,.2); }
+  50% { box-shadow: 0 0 0 6px rgba(255,255,255,.0), 0 4px 12px rgba(0,0,0,.2); }
+}
+.btn-hero-join:hover {
+  background: rgba(255,255,255,.2) !important;
+  border-color: #fff !important;
+  transform: translateY(-3px) scale(1.04);
+  animation-play-state: paused;
 }
 .hero-inner { position: relative; z-index: 1; max-width: 700px; margin: 0 auto; }
 .hero h1 { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 900; line-height: 1.15; margin-bottom: 1rem; }
@@ -688,21 +724,84 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
 .ai-typing span:nth-child(3) { animation-delay: .4s; }
 @keyframes typing-dot { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
 
+.ai-input-wrapper { position: relative; }
 .ai-input-area {
-  padding: .875rem 1rem; border-top: 1px solid var(--border);
-  display: flex; gap: .5rem;
+  padding: .75rem 1rem; border-top: 1px solid var(--border);
+  display: flex; gap: .5rem; align-items: flex-end;
+  background: var(--light); border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 .ai-input-area input {
   flex: 1; padding: .5rem .875rem; border: 1.5px solid var(--border);
   border-radius: var(--radius-full); font-size: .875rem;
+  transition: border-color .2s, box-shadow .2s; background: #fff;
 }
-.ai-input-area input:focus { outline: none; border-color: var(--primary); }
-.ai-send { width: 38px; height: 38px; background: var(--primary); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.ai-send:hover { background: var(--primary-dark); }
+.ai-input-area input:focus {
+  outline: none; border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(124,58,237,.12);
+}
+.ai-char-count {
+  font-size: .65rem; color: var(--text-light);
+  position: absolute; bottom: 1.1rem; right: 3.5rem;
+  pointer-events: none; opacity: 0; transition: opacity .15s;
+}
+.ai-input-area input:focus ~ .ai-char-count { opacity: 1; }
+.ai-char-count.near-limit { color: var(--warning); }
+.ai-char-count.at-limit { color: var(--error); }
 
-.ai-quick-btns { display: flex; flex-wrap: wrap; gap: .375rem; padding: 0 1rem .875rem; }
-.ai-quick-btn { padding: .25rem .75rem; background: var(--light); border: 1px solid var(--border); border-radius: var(--radius-full); font-size: .75rem; font-weight: 500; cursor: pointer; transition: all var(--transition); }
-.ai-quick-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+.ai-send {
+  width: 38px; height: 38px; background: var(--primary); color: #fff;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: all .2s cubic-bezier(.4,0,.2,1);
+}
+.ai-send:hover { background: var(--primary-dark); transform: scale(1.1); }
+.ai-send:active { transform: scale(.95); }
+.ai-send.sending { animation: send-pulse .4s ease; }
+@keyframes send-pulse { 0% { transform: scale(1); } 50% { transform: scale(1.25); } 100% { transform: scale(1); } }
+
+.ai-quick-btns {
+  display: flex; flex-wrap: wrap; gap: .375rem;
+  padding: .625rem 1rem .75rem; background: rgba(124,58,237,.03);
+  border-top: 1px solid var(--border);
+}
+.ai-quick-btn {
+  padding: .3rem .8rem; background: #fff; border: 1.5px solid var(--border);
+  border-radius: var(--radius-full); font-size: .7375rem; font-weight: 600;
+  cursor: pointer; transition: all .18s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+.ai-quick-btn:hover {
+  background: var(--primary); color: #fff; border-color: var(--primary);
+  transform: translateY(-1px); box-shadow: 0 3px 8px rgba(124,58,237,.25);
+}
+
+/* AI message slide-in */
+.ai-msg { animation: ai-msg-in .25s ease both; }
+@keyframes ai-msg-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* AI product card inside chat */
+.ai-product-card {
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: .5rem .625rem; display: flex; align-items: center; gap: .625rem;
+  font-size: .8125rem; cursor: pointer; transition: all .15s;
+  text-decoration: none; color: inherit; margin-top: .25rem;
+}
+.ai-product-card:hover { border-color: var(--primary); box-shadow: 0 2px 8px rgba(124,58,237,.15); }
+.ai-product-card-name { font-weight: 600; color: var(--dark); font-size: .8125rem; }
+.ai-product-card-price { color: var(--primary); font-weight: 700; font-size: .875rem; }
+
+/* AI input focus pulsing ring */
+.ai-input-area:focus-within {
+  border-top-color: rgba(124,58,237,.2);
+}
+
+/* AI thinking animation (enhanced) */
+.ai-thinking-label {
+  font-size: .7rem; color: var(--text-light); font-style: italic;
+  margin-left: .5rem; animation: fadeIn .3s ease;
+}
+[data-theme="dark"] .ai-product-card { background: #252237; border-color: var(--border); }
+[data-theme="dark"] .ai-product-card-name { color: var(--dark); }
+[data-theme="dark"] .ai-quick-btn { background: #252237; }
 
 /* ── Toasts ────────────────────────────────────────────── */
 .toast-container { position: fixed; top: 1.25rem; right: 1.25rem; z-index: 2000; display: flex; flex-direction: column; gap: .625rem; }

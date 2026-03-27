@@ -291,18 +291,23 @@
         <div class="ai-bubble">Hi there! 👋 I'm your TrendMart AI assistant. I can help you find products, check deals, track orders, and more. What can I do for you today?</div>
       </div>
     </div>
-    <div class="ai-quick-btns" aria-label="Quick questions">
+    <div id="ai-quick-btns" class="ai-quick-btns" aria-label="Quick questions">
       <button class="ai-quick-btn">🔥 Hot deals</button>
       <button class="ai-quick-btn">📦 My orders</button>
       <button class="ai-quick-btn">💡 Recommend me</button>
       <button class="ai-quick-btn">↩️ Return policy</button>
+      <button class="ai-quick-btn">🔍 Search products</button>
+      <button class="ai-quick-btn">🏷️ Best price</button>
     </div>
-    <div class="ai-input-area">
-      <label for="ai-input" class="sr-only">Type your message</label>
-      <input type="text" id="ai-input" placeholder="Ask me anything…" autocomplete="off" aria-label="Chat message input">
-      <button id="ai-send" class="ai-send" aria-label="Send message">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-      </button>
+    <div class="ai-input-wrapper">
+      <div class="ai-input-area">
+        <label for="ai-input" class="sr-only">Type your message</label>
+        <input type="text" id="ai-input" placeholder="Ask me anything…" autocomplete="off" aria-label="Chat message input" maxlength="300">
+        <span class="ai-char-count" id="ai-char-count" aria-live="polite" aria-label="Characters remaining">0/300</span>
+        <button id="ai-send" class="ai-send" aria-label="Send message">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
     </div>
   </div>
 </div>

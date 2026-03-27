@@ -22,14 +22,15 @@
 </div>
 
 <!-- Hero -->
-<section class="hero" aria-labelledby="hero-heading">
+<section class="hero" aria-labelledby="hero-heading" id="hero-section">
+  <canvas class="hero-canvas" id="hero-canvas" aria-hidden="true"></canvas>
   <div class="hero-inner">
     <h1 id="hero-heading">Shop the Trend,<br>Live the Style</h1>
     <p>Discover thousands of curated products across every category — from fashion to electronics, home décor to sports gear.</p>
     <div class="hero-actions">
-      <a href="{% url 'shop:product_list' %}" class="btn btn-white btn-lg">Explore Products</a>
+      <a href="{% url 'shop:product_list' %}" class="btn btn-white btn-lg btn-hero-explore">Explore Products</a>
       {% if not user.is_authenticated %}
-        <a href="{% url 'shop:register' %}" class="btn btn-secondary btn-lg" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.6)">Join Free</a>
+        <a href="{% url 'shop:register' %}" class="btn btn-lg btn-hero-join" style="background:rgba(255,255,255,.1);color:#fff;border:2px solid rgba(255,255,255,.6)">Join Free</a>
       {% endif %}
     </div>
     <div class="hero-floating-cards" aria-label="Platform statistics">

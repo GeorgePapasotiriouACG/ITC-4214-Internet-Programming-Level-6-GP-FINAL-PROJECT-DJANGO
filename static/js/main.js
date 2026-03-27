@@ -72,6 +72,86 @@ function initDropdowns() {
   document.addEventListener('click', () => document.querySelectorAll('.dropdown-menu.open').forEach(m => m.classList.remove('open')));
 }
 
+// ── Hero Particle Canvas ────────────────────────────────────
+function initHeroParticles() {
+  const canvas = document.getElementById('hero-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const hero = document.getElementById('hero-section');
+  if (!hero) return;
+
+  let mouse = { x: -9999, y: -9999 };
+  let W, H, particles;
+
+  function resize() {
+    W = canvas.width = hero.offsetWidth;
+    H = canvas.height = hero.offsetHeight;
+  }
+
+  function createParticles() {
+    particles = [];
+    const count = Math.min(Math.floor((W * H) / 9000), 70);
+    for (let i = 0; i < count; i++) {
+      particles.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.random() * 18 + 8,
+        vx: (Math.random() - 0.5) * 0.35,
+        vy: (Math.random() - 0.5) * 0.35,
+        opacity: Math.random() * 0.07 + 0.03,
+        pulsePhase: Math.random() * Math.PI * 2,
+        pulseSpeed: Math.random() * 0.015 + 0.008,
+      });
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    particles.forEach(p => {
+      p.pulsePhase += p.pulseSpeed;
+      const pulse = Math.sin(p.pulsePhase) * 0.015;
+      const opacity = Math.max(0, p.opacity + pulse);
+
+      const dx = mouse.x - p.x;
+      const dy = mouse.y - p.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const repulseR = 140;
+
+      if (dist < repulseR) {
+        const force = (1 - dist / repulseR) * 0.9;
+        p.x -= dx * force * 0.04;
+        p.y -= dy * force * 0.04;
+      }
+
+      p.x += p.vx;
+      p.y += p.vy;
+
+      if (p.x < -p.r) p.x = W + p.r;
+      if (p.x > W + p.r) p.x = -p.r;
+      if (p.y < -p.r) p.y = H + p.r;
+      if (p.y > H + p.r) p.y = -p.r;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${opacity})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+
+  hero.addEventListener('mousemove', e => {
+    const rect = hero.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left;
+    mouse.y = e.clientY - rect.top;
+  });
+  hero.addEventListener('mouseleave', () => { mouse.x = -9999; mouse.y = -9999; });
+
+  window.addEventListener('resize', () => { resize(); createParticles(); });
+  resize();
+  createParticles();
+  draw();
+}
+
 // ── Dark Mode ───────────────────────────────────────────────
 function initDarkMode() {
   const savedTheme = localStorage.getItem('trendmart-theme') || 'light';
@@ -361,40 +441,94 @@ function initAIChat() {
   const input = document.getElementById('ai-input');
   const sendBtn = document.getElementById('ai-send');
   const messages = document.getElementById('ai-messages');
+  const charCount = document.getElementById('ai-char-count');
   if (!trigger || !panel) return;
 
-  trigger.addEventListener('click', () => {
-    panel.classList.toggle('open');
-    trigger.setAttribute('aria-expanded', panel.classList.contains('open'));
-    if (panel.classList.contains('open') && input) { setTimeout(() => input.focus(), 200); }
-  });
-  closeBtn?.addEventListener('click', () => { panel.classList.remove('open'); trigger.setAttribute('aria-expanded', 'false'); });
+  let isOpen = false;
 
-  function appendMsg(text, type) {
+  function openPanel() {
+    isOpen = true;
+    panel.classList.add('open');
+    trigger.setAttribute('aria-expanded', 'true');
+    setTimeout(() => input?.focus(), 220);
+  }
+  function closePanel() {
+    isOpen = false;
+    panel.classList.remove('open');
+    trigger.setAttribute('aria-expanded', 'false');
+  }
+
+  trigger.addEventListener('click', () => isOpen ? closePanel() : openPanel());
+  closeBtn?.addEventListener('click', closePanel);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && isOpen) closePanel(); });
+
+  if (input && charCount) {
+    input.addEventListener('input', () => {
+      const len = input.value.length;
+      const max = 300;
+      charCount.textContent = `${len}/${max}`;
+      charCount.className = 'ai-char-count' + (len > 250 ? ' near-limit' : '') + (len >= max ? ' at-limit' : '');
+    });
+  }
+
+  function appendMsg(html, type) {
     const msg = document.createElement('div');
     msg.className = `ai-msg ${type}`;
-    msg.setAttribute('aria-live', 'polite');
-    msg.innerHTML = `<div class="ai-bubble">${text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}</div>`;
+    msg.innerHTML = `<div class="ai-bubble">${html}</div>`;
     messages.appendChild(msg);
     messages.scrollTop = messages.scrollHeight;
+    return msg;
+  }
+
+  function formatBotText(text) {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/~~(.*?)~~/g, '<s>$1</s>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:var(--primary);text-decoration:underline;font-weight:600">$1</a>')
+      .replace(/🔗<a href="([^"]+)"[^>]*>([^<]+)<\/a>/g, '<a href="$1" class="ai-product-card"><span class="ai-product-card-name">$2</span></a>')
+      .replace(/\n/g, '<br>');
   }
 
   function showTyping() {
     const t = document.createElement('div');
     t.className = 'ai-msg bot'; t.id = 'ai-typing-indicator';
-    t.innerHTML = '<div class="ai-typing"><span></span><span></span><span></span></div>';
+    t.innerHTML = '<div class="ai-typing"><span></span><span></span><span></span></div><span class="ai-thinking-label">thinking…</span>';
     messages.appendChild(t); messages.scrollTop = messages.scrollHeight;
     return t;
   }
 
+  function updateQuickBtns(context) {
+    const quickBtns = document.getElementById('ai-quick-btns');
+    if (!quickBtns) return;
+    const contextBtns = {
+      product: ['➕ Add to cart', '⭐ Reviews', '📦 Stock', '💰 Best price'],
+      order: ['📍 Track order', '↩️ Return item', '🧾 Invoice', '📞 Support'],
+      default: ['🔥 Hot deals', '📦 My orders', '💡 Recommend me', '↩️ Return policy', '🔍 Search products', '🏷️ Best price'],
+    };
+    const btns = contextBtns[context] || contextBtns.default;
+    quickBtns.innerHTML = btns.map(b => `<button class="ai-quick-btn">${b}</button>`).join('');
+    quickBtns.querySelectorAll('.ai-quick-btn').forEach(btn => {
+      btn.addEventListener('click', () => sendMessage(btn.textContent.trim()));
+    });
+  }
+
   function sendMessage(text) {
     if (!text.trim()) return;
-    appendMsg(text, 'user');
-    if (input) input.value = '';
+    appendMsg(text.replace(/</g, '&lt;'), 'user');
+    if (input) { input.value = ''; if (charCount) charCount.textContent = '0/300'; }
+    sendBtn?.classList.add('sending');
+    setTimeout(() => sendBtn?.classList.remove('sending'), 400);
+
     const typing = showTyping();
     fetchPost('/ai/chat/', { message: text })
       .then(r => r.json())
-      .then(data => { typing.remove(); appendMsg(data.reply, 'bot'); })
+      .then(data => {
+        typing.remove();
+        appendMsg(formatBotText(data.reply || "Sorry, I couldn't process that."), 'bot');
+        if (text.match(/order|track|delivery/i)) updateQuickBtns('order');
+        else if (text.match(/product|show|find|search/i)) updateQuickBtns('product');
+        else updateQuickBtns('default');
+      })
       .catch(() => { typing.remove(); appendMsg("Sorry, I'm having trouble connecting. Please try again!", 'bot'); });
   }
 
@@ -552,6 +686,7 @@ function initDjangoMessages() {
 // ── Init all ────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   initDarkMode();
+  initHeroParticles();
   Toast.init();
   initDropdowns();
   initMobileNav();
