@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<!--
+  Author:       George Papasotiriou
+  Date Created: March 28, 2026
+  Project:      TrendMart E-Commerce Platform
+  File:         templates/shop/emails/order_confirmation.html
+  Description:  HTML email template for order confirmation. Sent immediately
+                after a customer completes checkout. Includes order summary,
+                itemised list, and shipping address.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Confirmed — {{ order.order_number }}</title>
+  <style>
+    body { margin:0; padding:0; background:#F3F4F6; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; color:#1F2937; }
+    .wrapper { max-width:600px; margin:32px auto; background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,.08); }
+    .header { background:linear-gradient(135deg,#7C3AED,#5B21B6); padding:40px 32px; text-align:center; }
+    .header h1 { color:#fff; margin:0; font-size:28px; letter-spacing:-.5px; }
+    .header p { color:rgba(255,255,255,.8); margin:8px 0 0; font-size:15px; }
+    .body { padding:32px; }
+    .greeting { font-size:18px; font-weight:600; margin-bottom:8px; }
+    .intro { color:#6B7280; margin-bottom:24px; line-height:1.6; }
+    .order-number { background:#EDE9FE; border-left:4px solid #7C3AED; padding:16px 20px; border-radius:8px; margin-bottom:24px; }
+    .order-number span { font-size:13px; color:#6B7280; display:block; margin-bottom:4px; }
+    .order-number strong { font-size:20px; color:#7C3AED; letter-spacing:1px; }
+    table.items { width:100%; border-collapse:collapse; margin-bottom:24px; }
+    table.items th { background:#F9FAFB; padding:10px 12px; text-align:left; font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:#6B7280; border-bottom:2px solid #E5E7EB; }
+    table.items td { padding:12px; border-bottom:1px solid #F3F4F6; font-size:14px; vertical-align:top; }
+    .subtotal { font-weight:600; }
+    .total-row { background:#EDE9FE; }
+    .total-row td { font-size:17px; font-weight:700; color:#7C3AED; }
+    .address-box { background:#F9FAFB; border:1px solid #E5E7EB; border-radius:10px; padding:20px; margin-bottom:24px; }
+    .address-box h3 { margin:0 0 8px; font-size:14px; color:#6B7280; text-transform:uppercase; letter-spacing:.5px; }
+    .address-box p { margin:0; line-height:1.7; font-size:14px; }
+    .cta { text-align:center; margin:28px 0; }
+    .cta a { display:inline-block; background:#7C3AED; color:#fff; text-decoration:none; padding:14px 32px; border-radius:50px; font-weight:700; font-size:15px; }
+    .footer { background:#F9FAFB; border-top:1px solid #E5E7EB; padding:24px 32px; text-align:center; }
+    .footer p { color:#9CA3AF; font-size:12px; margin:4px 0; }
+    .footer a { color:#7C3AED; text-decoration:none; }
+    .badge { display:inline-block; background:#D1FAE5; color:#065F46; padding:4px 10px; border-radius:50px; font-size:12px; font-weight:600; }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+  <!-- Header -->
+  <div class="header">
+    <h1>✅ Order Confirmed!</h1>
+    <p>Thank you for shopping with {{ site_name }}</p>
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+    <p class="greeting">Hi {{ order.full_name }}!</p>
+    <p class="intro">
+      We've received your order and it's being prepared. You'll receive another email once it ships.
+      You can track your order status in your
+      <a href="{{ site_url }}/orders/" style="color:#7C3AED">TrendMart account</a>.
+    </p>
+
+    <!-- Order number callout -->
+    <div class="order-number">
+      <span>Order Number</span>
+      <strong>{{ order.order_number }}</strong>
+    </div>
+
+    <!-- Items table -->
+    <table class="items" role="table">
+      <thead>
+        <tr>
+          <th scope="col">Product</th>
+          <th scope="col">Qty</th>
+          <th scope="col">Price</th>
+          <th scope="col">Subtotal</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in order.items.all %}
+        <tr>
+          <td>{{ item.product_name }}{% if item.size %} <span style="color:#9CA3AF">({{ item.size }})</span>{% endif %}</td>
+          <td>{{ item.quantity }}</td>
+          <td>${{ item.product_price }}</td>
+          <td class="subtotal">${{ item.get_subtotal }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr class="total-row">
+          <td colspan="3" style="text-align:right;padding:14px 12px">Order Total</td>
+          <td style="padding:14px 12px">${{ order.total_amount }}</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <!-- Shipping address -->
+    <div class="address-box">
+      <h3>📦 Shipping To</h3>
+      <p>
+        {{ order.full_name }}<br>
+        {{ order.address }}<br>
+        {% if order.city %}{{ order.city }}{% endif %}{% if order.postal_code %}, {{ order.postal_code }}{% endif %}<br>
+        {% if order.country %}{{ order.country }}{% endif %}
+      </p>
+    </div>
+
+    <!-- Delivery estimate -->
+    <p style="background:#FEF3C7;border-left:4px solid #F59E0B;padding:14px 18px;border-radius:8px;color:#92400E;font-size:14px;margin-bottom:24px">
+      🚚 <strong>Estimated delivery:</strong> 3–5 business days for standard shipping, 1–2 days for express.
+      Free shipping on orders over $50!
+    </p>
+
+    <!-- CTA -->
+    <div class="cta">
+      <a href="{{ site_url }}/orders/{{ order.order_number }}/">View My Order</a>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <p>Need help? Email us at <a href="mailto:support@trendmart.com">support@trendmart.com</a></p>
+    <p>30-day hassle-free returns &mdash; No questions asked</p>
+    <p style="margin-top:12px">&copy; 2026 {{ site_name }}. Developed by George Papasotiriou.</p>
+  </div>
+</div>
+</body>
+</html>

@@ -1,8 +1,25 @@
+# =============================================================================
+# Author:       George Papasotiriou
+# Date Created: March 28, 2026
+# Project:      TrendMart E-Commerce Platform
+# File:         shop/forms.py
+# Description:  All Django ModelForms and Forms for TrendMart. Covers user
+#               registration (customer & retailer), profile editing, product
+#               rating/review submission, product management, category & brand
+#               admin forms, and the simulated checkout form.
+# =============================================================================
+
 from django import forms
 from django.contrib.auth.models import User
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import UserCreationForm  # Provides built-in password validation
+
+# Import models whose data these forms create or update
 from .models import UserProfile, RetailerProfile, ProductRating, Product, Category, Brand
 
+
+# ─── Customer Registration ────────────────────────────────────────────────────
+# Extends Django's UserCreationForm (which handles password hashing/validation)
+# with extra fields for TrendMart's customer profile.
 
 class CustomerRegistrationForm(UserCreationForm):
     email = forms.EmailField(required=True, widget=forms.EmailInput(attrs={'placeholder': 'your@email.com'}))
@@ -85,13 +102,18 @@ class UserProfileForm(forms.ModelForm):
 class ProductRatingForm(forms.ModelForm):
     class Meta:
         model = ProductRating
-        fields = ['rating', 'review']
+        fields = ['rating', 'review', 'review_photo']
         widgets = {
             'rating': forms.HiddenInput(attrs={'id': 'rating-value'}),
             'review': forms.Textarea(attrs={
                 'rows': 4,
                 'class': 'form-control',
                 'placeholder': 'Share your experience with this product...',
+            }),
+            'review_photo': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/*',
+                'id': 'review-photo-input',
             }),
         }
 

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<!--
+  Author:       George Papasotiriou
+  Date Created: March 28, 2026
+  Project:      TrendMart E-Commerce Platform
+  File:         templates/shop/emails/price_drop_alert.html
+  Description:  HTML email template for wishlist price-drop alerts.
+                Sent when a product a user has wishlisted goes on sale.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Price Drop Alert — {{ product.name }}</title>
+  <style>
+    body { margin:0; padding:0; background:#F3F4F6; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; color:#1F2937; }
+    .wrapper { max-width:600px; margin:32px auto; background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,.08); }
+    .header { background:linear-gradient(135deg,#F59E0B,#D97706); padding:40px 32px; text-align:center; }
+    .header h1 { color:#fff; margin:0; font-size:28px; }
+    .header p { color:rgba(255,255,255,.85); margin:8px 0 0; font-size:15px; }
+    .body { padding:32px; }
+    .product-card { border:2px solid #FDE68A; border-radius:14px; padding:24px; margin:24px 0; background:#FFFBEB; text-align:center; }
+    .product-name { font-size:20px; font-weight:700; margin-bottom:16px; }
+    .price-row { display:flex; justify-content:center; align-items:center; gap:16px; flex-wrap:wrap; }
+    .old-price { font-size:18px; color:#9CA3AF; text-decoration:line-through; }
+    .new-price { font-size:32px; font-weight:800; color:#10B981; }
+    .saving-badge { background:#D1FAE5; color:#065F46; padding:6px 14px; border-radius:50px; font-size:13px; font-weight:700; }
+    .cta { text-align:center; margin:28px 0; }
+    .cta a { display:inline-block; background:#F59E0B; color:#fff; text-decoration:none; padding:14px 36px; border-radius:50px; font-weight:700; font-size:16px; }
+    .urgency { background:#FEE2E2; border:1px solid #FCA5A5; border-radius:10px; padding:16px 20px; font-size:14px; color:#991B1B; margin-bottom:24px; }
+    .footer { background:#F9FAFB; border-top:1px solid #E5E7EB; padding:24px 32px; text-align:center; }
+    .footer p { color:#9CA3AF; font-size:12px; margin:4px 0; }
+    .footer a { color:#F59E0B; text-decoration:none; }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+  <!-- Header -->
+  <div class="header">
+    <h1>🔥 Price Drop Alert!</h1>
+    <p>An item on your wishlist just went on sale</p>
+  </div>
+
+  <div class="body">
+    <p style="font-size:17px;font-weight:600;margin-bottom:6px">Hi {{ user.first_name|default:user.username }}!</p>
+    <p style="color:#6B7280;line-height:1.6;margin-bottom:24px">
+      Great news — a product you've been eyeing on your TrendMart wishlist has dropped in price!
+      This deal won't last forever, so grab it now before it's gone. 😍
+    </p>
+
+    <!-- Product card -->
+    <div class="product-card">
+      <div class="product-name">{{ product.name }}</div>
+      {% if product.brand %}<div style="color:#9CA3AF;font-size:13px;margin-bottom:16px">by {{ product.brand.name }}</div>{% endif %}
+      <div class="price-row">
+        <span class="old-price">${{ old_price }}</span>
+        <span class="new-price">${{ new_price }}</span>
+      </div>
+      <div style="margin-top:14px">
+        <span class="saving-badge">🎉 You save ${{ saving|floatformat:2 }} ({{ product.get_discount_percentage }}% off!)</span>
+      </div>
+    </div>
+
+    <!-- Urgency message -->
+    <div class="urgency">
+      ⏰ <strong>Limited-time offer!</strong> Sale prices can change at any time. Add to cart now to lock in this price.
+    </div>
+
+    <!-- CTA -->
+    <div class="cta">
+      <a href="{{ site_url }}/products/{{ product.slug }}/">🛍️ Shop Now — While Stock Lasts</a>
+    </div>
+
+    <p style="text-align:center;font-size:13px;color:#9CA3AF">
+      This alert was sent because <strong>{{ product.name }}</strong> is on your
+      <a href="{{ site_url }}/wishlist/" style="color:#F59E0B">TrendMart Wishlist</a>.
+    </p>
+  </div>
+
+  <div class="footer">
+    <p>Unsubscribe from wishlist alerts: <a href="{{ site_url }}/profile/">Manage preferences</a></p>
+    <p>Questions? <a href="mailto:support@trendmart.com">support@trendmart.com</a></p>
+    <p style="margin-top:12px">&copy; 2026 {{ site_name }}. Developed by George Papasotiriou.</p>
+  </div>
+</div>
+</body>
+</html>

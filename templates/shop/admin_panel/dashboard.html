@@ -4,10 +4,10 @@
 {% block admin_content %}
 <div class="admin-content-header">
   <h1 class="admin-page-title">Dashboard Overview</h1>
-  <p style="color:var(--text-light)">Welcome back, {{ user.first_name|default:user.username }}</p>
+  <p style="color:var(--text-light)">Welcome back, {{ user.first_name|default:user.username }} &mdash; here&rsquo;s your TrendMart at a glance.</p>
 </div>
 
-<!-- Stats -->
+<!-- ── Key Stats ─────────────────────────────────────────── -->
 <div class="stats-grid" style="margin-bottom:2rem">
   <div class="stat-card">
     <div class="stat-icon" aria-hidden="true">📦</div>
@@ -29,11 +29,49 @@
     <div class="stat-value">{{ total_retailers }}</div>
     <div class="stat-label">Retailers</div>
   </div>
+  <div class="stat-card" style="background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff">
+    <div class="stat-icon" aria-hidden="true" style="background:rgba(255,255,255,.15)">💰</div>
+    <div class="stat-value" style="color:#fff">${{ total_revenue|floatformat:2 }}</div>
+    <div class="stat-label" style="color:rgba(255,255,255,.8)">Total Revenue</div>
+  </div>
+</div>
+
+<!-- ── Revenue & Orders Chart (30 days) ──────────────────── -->
+<div class="card" style="margin-bottom:1.5rem">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
+    <h2 class="card-title" style="margin-bottom:0">📈 Revenue &amp; Orders — Last 30 Days</h2>
+    <div style="display:flex;gap:1rem;font-size:.8125rem;color:var(--text-light)">
+      <span><span style="display:inline-block;width:10px;height:10px;background:#7C3AED;border-radius:50%;margin-right:.25rem"></span>Revenue ($)</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#10B981;border-radius:50%;margin-right:.25rem"></span>Orders</span>
+    </div>
+  </div>
+  <div style="position:relative;height:260px">
+    <canvas id="revenueChart" aria-label="Revenue and order count over the last 30 days" role="img"></canvas>
+  </div>
+</div>
+
+<!-- ── Top Products & Category Revenue ───────────────────── -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.5rem">
+  <!-- Top Products bar chart -->
+  <div class="card">
+    <h2 class="card-title" style="margin-bottom:1rem">🏆 Top Products by Revenue</h2>
+    <div style="position:relative;height:260px">
+      <canvas id="topProductsChart" aria-label="Top products by revenue" role="img"></canvas>
+    </div>
+  </div>
+
+  <!-- Category revenue doughnut -->
+  <div class="card">
+    <h2 class="card-title" style="margin-bottom:1rem">🗂️ Revenue by Category</h2>
+    <div style="position:relative;height:260px">
+      <canvas id="categoryChart" aria-label="Revenue breakdown by category" role="img"></canvas>
+    </div>
+  </div>
 </div>
 
 <div class="dashboard-grid">
   <div>
-    <!-- Recent Orders -->
+    <!-- Recent Orders table -->
     <div class="card" style="margin-bottom:1.25rem">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
         <h2 class="card-title" style="margin-bottom:0">Recent Orders</h2>
@@ -67,7 +105,7 @@
       </div>
     </div>
 
-    <!-- Pending Approvals -->
+    <!-- Pending Product Approvals -->
     {% if pending_products %}
     <div class="card" style="margin-bottom:1.25rem">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
@@ -122,4 +160,175 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js v4 from CDN — lightweight charting library -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  // ── Shared colour palette ─────────────────────────────────
+  const PRIMARY   = '#7C3AED';
+  const SUCCESS   = '#10B981';
+  const ACCENT    = '#F59E0B';
+  const COLORS    = ['#7C3AED','#10B981','#F59E0B','#EF4444','#3B82F6','#EC4899','#14B8A6','#F97316'];
+
+  // ── Detect dark mode ──────────────────────────────────────
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const gridColor  = isDark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.07)';
+  const tickColor  = isDark ? '#9CA3AF' : '#6B7280';
+  const labelColor = isDark ? '#E5E7EB' : '#1F2937';
+
+  // ── Data injected from Django view ───────────────────────
+  const labels      = {{ chart_labels_json|safe }};
+  const revenues    = {{ chart_revenue_json|safe }};
+  const orders      = {{ chart_orders_json|safe }};
+  const topProducts = {{ top_products_json|safe }};
+  const catRevenue  = {{ category_revenue_json|safe }};
+
+  // ── 1. Revenue & Orders line chart ───────────────────────
+  new Chart(document.getElementById('revenueChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Revenue ($)',
+          data: revenues,
+          borderColor: PRIMARY,
+          backgroundColor: `${PRIMARY}18`,
+          borderWidth: 2.5,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          fill: true,
+          tension: 0.4,
+          yAxisID: 'yRevenue',
+        },
+        {
+          label: 'Orders',
+          data: orders,
+          borderColor: SUCCESS,
+          backgroundColor: `${SUCCESS}18`,
+          borderWidth: 2,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          fill: true,
+          tension: 0.4,
+          yAxisID: 'yOrders',
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ctx.dataset.label === 'Revenue ($)'
+              ? ` $${ctx.parsed.y.toFixed(2)}`
+              : ` ${ctx.parsed.y} orders`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { color: gridColor },
+          ticks: { color: tickColor, maxRotation: 45, font: { size: 11 } },
+        },
+        yRevenue: {
+          type: 'linear', position: 'left',
+          grid: { color: gridColor },
+          ticks: { color: PRIMARY, callback: v => `$${v}`, font: { size: 11 } },
+        },
+        yOrders: {
+          type: 'linear', position: 'right',
+          grid: { display: false },
+          ticks: { color: SUCCESS, stepSize: 1, font: { size: 11 } },
+        },
+      },
+    },
+  });
+
+  // ── 2. Top Products horizontal bar chart ─────────────────
+  const prodNames    = topProducts.map(p => p.name.length > 22 ? p.name.slice(0, 22) + '…' : p.name);
+  const prodRevenues = topProducts.map(p => p.revenue);
+  const prodSold     = topProducts.map(p => p.sold);
+
+  new Chart(document.getElementById('topProductsChart'), {
+    type: 'bar',
+    data: {
+      labels: prodNames,
+      datasets: [{
+        label: 'Revenue ($)',
+        data: prodRevenues,
+        backgroundColor: COLORS.slice(0, prodNames.length),
+        borderRadius: 6,
+        borderSkipped: false,
+      }],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const idx = ctx.dataIndex;
+              return [` Revenue: $${ctx.parsed.x.toFixed(2)}`, ` Sold: ${prodSold[idx]} units`];
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { color: gridColor },
+          ticks: { color: tickColor, callback: v => `$${v}`, font: { size: 11 } },
+        },
+        y: {
+          grid: { display: false },
+          ticks: { color: labelColor, font: { size: 11 } },
+        },
+      },
+    },
+  });
+
+  // ── 3. Category revenue doughnut chart ───────────────────
+  const catNames = catRevenue.map(c => c.name);
+  const catVals  = catRevenue.map(c => c.revenue);
+
+  new Chart(document.getElementById('categoryChart'), {
+    type: 'doughnut',
+    data: {
+      labels: catNames,
+      datasets: [{
+        data: catVals,
+        backgroundColor: COLORS.slice(0, catNames.length),
+        borderWidth: 2,
+        borderColor: isDark ? '#1F2937' : '#FFFFFF',
+        hoverOffset: 8,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '62%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: labelColor, font: { size: 11 }, padding: 10, boxWidth: 12 },
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` $${ctx.parsed.toFixed(2)} (${((ctx.parsed / catVals.reduce((a,b)=>a+b,0))*100).toFixed(1)}%)`,
+          },
+        },
+      },
+    },
+  });
+})();
+</script>
 {% endblock %}

@@ -1,6 +1,18 @@
+# =============================================================================
+# Author:       George Papasotiriou
+# Date Created: March 28, 2026
+# Project:      TrendMart E-Commerce Platform
+# File:         shop/urls.py
+# Description:  URL routing for the TrendMart shop application. Maps every
+#               URL pattern to its corresponding view function. Organised into
+#               logical sections: catalogue, auth, dashboard, cart, orders,
+#               wishlist, ratings, AI assistant, and admin panel.
+# =============================================================================
+
 from django.urls import path
 from . import views
 
+# All URLs in this file are namespaced as 'shop' (referenced as 'shop:view_name')
 app_name = 'shop'
 
 urlpatterns = [
@@ -35,6 +47,7 @@ urlpatterns = [
     path('wishlist/toggle/', views.toggle_wishlist, name='toggle_wishlist'),
 
     path('rate/<slug:slug>/', views.rate_product, name='rate_product'),
+    path('review/<int:review_id>/helpful/', views.mark_review_helpful, name='mark_review_helpful'),
 
     path('ai/chat/', views.ai_assistant, name='ai_assistant'),
 

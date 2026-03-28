@@ -1,11 +1,8 @@
 <article class="product-card" role="listitem">
+{% load shop_tags %}
   <div class="product-card-image">
     <a href="{{ product.get_absolute_url }}" aria-label="View {{ product.name }}">
-      {% if product.image %}
-        <img src="{{ product.image.url }}" alt="{{ product.name }}" loading="lazy">
-      {% else %}
-        <img src="https://picsum.photos/seed/{{ product.slug }}/400/300" alt="{{ product.name }}" loading="lazy">
-      {% endif %}
+      <img src="{% product_image product 400 300 %}" alt="{{ product.name }}" loading="lazy">
     </a>
     {% if product.is_on_sale %}
       <span class="product-badge badge-sale" aria-label="{{ product.get_discount_percentage }}% off">-{{ product.get_discount_percentage }}%</span>

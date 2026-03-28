@@ -4,8 +4,48 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="TrendMart - Shop the Trend, Live the Style. Discover thousands of products across all categories.">
+  <!-- Primary SEO meta tags — overridable per page via block meta_description -->
+  <meta name="description" content="{% block meta_description %}TrendMart — Shop the Trend, Live the Style. Discover thousands of products across electronics, fashion, beauty, sports and more. Fast shipping, easy returns.{% endblock %}">
+  <meta name="keywords" content="{% block meta_keywords %}TrendMart, online shopping, electronics, fashion, shoes, beauty, sports, deals, sale{% endblock %}">
+  <meta name="author" content="George Papasotiriou — TrendMart">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="{% block canonical %}{{ request.build_absolute_uri }}{% endblock %}">
+  <!-- Open Graph (Facebook, LinkedIn previews) -->
+  <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+  <meta property="og:title" content="{% block og_title %}TrendMart | Shop the Trend, Live the Style{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}TrendMart — your next-generation e-commerce destination. Thousands of products, smart recommendations, and an AI assistant.{% endblock %}">
+  <meta property="og:image" content="{% block og_image %}{% static 'img/og-default.jpg' %}{% endblock %}">
+  <meta property="og:url" content="{{ request.build_absolute_uri }}">
+  <meta property="og:site_name" content="TrendMart">
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{% block tw_title %}TrendMart | Shop the Trend{% endblock %}">
+  <meta name="twitter:description" content="{% block tw_description %}Discover thousands of products with smart AI recommendations at TrendMart.{% endblock %}">
+  <meta name="twitter:image" content="{% block tw_image %}{% static 'img/og-default.jpg' %}{% endblock %}">
+  <!-- PWA / Mobile -->
   <meta name="theme-color" content="#7C3AED">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TrendMart">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="{% static 'manifest.json' %}">
+  <!-- Structured Data (JSON-LD) — helps Google show rich results -->
+  {% block structured_data %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "TrendMart",
+    "url": "{{ request.scheme }}://{{ request.get_host }}/",
+    "description": "Next-generation e-commerce platform by George Papasotiriou",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "{{ request.scheme }}://{{ request.get_host }}/search/?q={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
+  {% endblock %}
   <title>{% block title %}TrendMart{% endblock %} | Shop the Trend, Live the Style</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -56,6 +96,21 @@
         <button id="mobile-search-btn" class="nav-icon-btn" aria-label="Search" aria-expanded="false">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         </button>
+
+        <div class="currency-selector" title="Select currency">
+          <button class="currency-btn" id="currency-btn" aria-label="Currency selector" aria-haspopup="listbox">
+            <span id="currency-flag">🇺🇸</span>
+            <span id="currency-code">USD</span>
+          </button>
+          <div class="currency-dropdown" id="currency-dropdown" role="listbox" aria-label="Select currency">
+            <button role="option" data-currency="USD" data-symbol="$" data-rate="1" data-flag="🇺🇸" class="currency-opt active">🇺🇸 USD — Dollar</button>
+            <button role="option" data-currency="EUR" data-symbol="€" data-rate="0.92" data-flag="🇪🇺" class="currency-opt">🇪🇺 EUR — Euro</button>
+            <button role="option" data-currency="GBP" data-symbol="£" data-rate="0.79" data-flag="🇬🇧" class="currency-opt">🇬🇧 GBP — Pound</button>
+            <button role="option" data-currency="JPY" data-symbol="¥" data-rate="149.5" data-flag="🇯🇵" class="currency-opt">🇯🇵 JPY — Yen</button>
+            <button role="option" data-currency="CAD" data-symbol="C$" data-rate="1.36" data-flag="🇨🇦" class="currency-opt">🇨🇦 CAD — Dollar</button>
+            <button role="option" data-currency="AUD" data-symbol="A$" data-rate="1.53" data-flag="🇦🇺" class="currency-opt">🇦🇺 AUD — Dollar</button>
+          </div>
+        </div>
 
         <button id="dark-mode-toggle" class="dark-mode-btn" aria-label="Toggle dark mode" aria-pressed="false" title="Toggle dark mode">
           <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -167,7 +222,7 @@
       </div>
     </div>
     <div class="footer-bottom">
-      <span>&copy; 2024 TrendMart. Developed by George Papasotiriou. All rights reserved.</span>
+      <span>&copy; 2026 TrendMart. Developed by George Papasotiriou. All rights reserved.</span>
       <span>Made with ❤️ for great shopping experiences</span>
     </div>
   </div>
@@ -281,10 +336,16 @@
     <div class="ai-chat-header">
       <div class="ai-avatar" aria-hidden="true">🤖</div>
       <div class="ai-info">
-        <div class="ai-name">TrendMart AI</div>
-        <div class="ai-status">● Online – here to help</div>
+        <div class="ai-name">TrendMart AI <span class="ai-model-badge">GPT-4o</span></div>
+        <div class="ai-status" id="ai-status-line">● Online &mdash; ready to help</div>
       </div>
-      <button id="ai-chat-close" class="ai-close" aria-label="Close chat">✕</button>
+      <div style="display:flex;gap:.375rem;align-items:center">
+        <!-- Clear chat history — calls backend action to reset session memory -->
+        <button id="ai-clear-chat" class="ai-icon-btn" aria-label="Clear conversation history" title="New conversation">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+        </button>
+        <button id="ai-chat-close" class="ai-close" aria-label="Close chat">✕</button>
+      </div>
     </div>
     <div id="ai-messages" class="ai-messages" role="log" aria-live="polite" aria-label="Chat messages">
       <div class="ai-msg bot">
@@ -303,10 +364,12 @@
       <div class="ai-input-area">
         <label for="ai-input" class="sr-only">Type your message</label>
         <input type="text" id="ai-input" placeholder="Ask me anything…" autocomplete="off" aria-label="Chat message input" maxlength="300">
-        <span class="ai-char-count" id="ai-char-count" aria-live="polite" aria-label="Characters remaining">0/300</span>
         <button id="ai-send" class="ai-send" aria-label="Send message">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
+      </div>
+      <div class="ai-input-footer">
+        <span class="ai-char-count" id="ai-char-count" aria-live="polite" aria-label="Characters typed">0/300</span>
       </div>
     </div>
   </div>
@@ -314,5 +377,12 @@
 
 <script src="{% static 'js/main.js' %}"></script>
 {% block extra_js %}{% endblock %}
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('{% static "js/sw.js" %}', { scope: '/' }).catch(() => {});
+    });
+  }
+</script>
 </body>
 </html>

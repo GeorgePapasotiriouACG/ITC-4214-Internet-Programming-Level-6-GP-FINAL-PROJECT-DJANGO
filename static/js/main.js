@@ -1,6 +1,23 @@
 'use strict';
 
+// =============================================================================
+// Author:       George Papasotiriou
+// Date Created: March 28, 2026
+// Project:      TrendMart E-Commerce Platform
+// File:         static/js/main.js
+// Description:  Main vanilla JavaScript file for TrendMart. Handles all
+//               client-side interactivity including: dark mode toggle, hero
+//               particle canvas, toast notifications, dropdown menus, mobile
+//               navigation, search autocomplete, AJAX cart/wishlist/ratings,
+//               AI chat assistant UI, product quick view, price slider,
+//               currency converter, PWA install prompt, and recently viewed strip.
+//
+// No external JS frameworks are used — all vanilla ES6+ JavaScript.
+// =============================================================================
+
 // ── CSRF Helper ────────────────────────────────────────────
+// Django requires a CSRF token for all POST requests.
+// getCookie reads it from the browser's cookie jar so AJAX calls pass auth.
 function getCookie(name) {
   let v = null;
   document.cookie.split(';').forEach(c => {
@@ -438,13 +455,27 @@ function initAIChat() {
   const trigger = document.getElementById('ai-chat-trigger');
   const panel = document.getElementById('ai-chat-panel');
   const closeBtn = document.getElementById('ai-chat-close');
+  const clearBtn = document.getElementById('ai-clear-chat');
   const input = document.getElementById('ai-input');
   const sendBtn = document.getElementById('ai-send');
   const messages = document.getElementById('ai-messages');
   const charCount = document.getElementById('ai-char-count');
+  const statusLine = document.getElementById('ai-status-line');
   if (!trigger || !panel) return;
 
   let isOpen = false;
+
+  // Update the status dot in the AI header (online / thinking / error)
+  function setStatus(state) {
+    if (!statusLine) return;
+    const states = {
+      online:   '● Online &mdash; ready to help',
+      thinking: '● Thinking…',
+      error:    '● Connection issue — retrying',
+    };
+    statusLine.innerHTML = states[state] || states.online;
+    statusLine.style.color = state === 'error' ? '#EF4444' : state === 'thinking' ? '#F59E0B' : '';
+  }
 
   function openPanel() {
     isOpen = true;
@@ -461,6 +492,17 @@ function initAIChat() {
   trigger.addEventListener('click', () => isOpen ? closePanel() : openPanel());
   closeBtn?.addEventListener('click', closePanel);
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && isOpen) closePanel(); });
+
+  // Clear chat — wipes all messages from the UI and resets session memory on the server
+  clearBtn?.addEventListener('click', () => {
+    if (!messages) return;
+    // Clear the message area, keeping only the welcome message
+    messages.innerHTML = '<div class="ai-msg bot"><div class="ai-bubble">Chat cleared! ✨ I\'m ready to help — what can I find for you?</div></div>';
+    // Tell the backend to reset the session conversation history
+    fetchPost('/ai/chat/', { action: 'clear_history' }).catch(() => {});
+    if (input) { input.value = ''; input.focus(); }
+    if (charCount) charCount.textContent = '0/300';
+  });
 
   if (input && charCount) {
     input.addEventListener('input', () => {
@@ -518,18 +560,25 @@ function initAIChat() {
     if (input) { input.value = ''; if (charCount) charCount.textContent = '0/300'; }
     sendBtn?.classList.add('sending');
     setTimeout(() => sendBtn?.classList.remove('sending'), 400);
+    setStatus('thinking');  // Show "Thinking…" in header while waiting for AI
 
     const typing = showTyping();
     fetchPost('/ai/chat/', { message: text })
       .then(r => r.json())
       .then(data => {
         typing.remove();
+        setStatus('online');  // Back to "Online" once reply arrives
         appendMsg(formatBotText(data.reply || "Sorry, I couldn't process that."), 'bot');
         if (text.match(/order|track|delivery/i)) updateQuickBtns('order');
         else if (text.match(/product|show|find|search/i)) updateQuickBtns('product');
         else updateQuickBtns('default');
       })
-      .catch(() => { typing.remove(); appendMsg("Sorry, I'm having trouble connecting. Please try again!", 'bot'); });
+      .catch(() => {
+        typing.remove();
+        setStatus('error');
+        setTimeout(() => setStatus('online'), 4000);  // Recover status after 4s
+        appendMsg("Sorry, I'm having trouble connecting. Please try again!", 'bot');
+      });
   }
 
   sendBtn?.addEventListener('click', () => sendMessage(input?.value || ''));
@@ -683,6 +732,136 @@ function initDjangoMessages() {
   });
 }
 
+// ── Multi-Currency Converter ─────────────────────────────────
+function initCurrencySelector() {
+  const btn = document.getElementById('currency-btn');
+  const dropdown = document.getElementById('currency-dropdown');
+  const flagEl = document.getElementById('currency-flag');
+  const codeEl = document.getElementById('currency-code');
+  if (!btn || !dropdown) return;
+
+  const STORAGE_KEY = 'trendmart-currency';
+  let current = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || { code: 'USD', symbol: '$', rate: 1, flag: '🇺🇸' };
+
+  function applyConversion() {
+    flagEl.textContent = current.flag;
+    codeEl.textContent = current.code;
+    document.querySelectorAll('.currency-opt').forEach(o => {
+      o.classList.toggle('active', o.dataset.currency === current.code);
+    });
+    document.querySelectorAll('[data-base-price]').forEach(el => {
+      const base = parseFloat(el.dataset.basePrice);
+      const converted = (base * current.rate).toFixed(current.rate >= 100 ? 0 : 2);
+      el.textContent = current.symbol + converted;
+    });
+    document.querySelectorAll('.price-current, .price-original, .rv-card-price, .ai-product-card-price').forEach(el => {
+      const raw = el.textContent.replace(/[^0-9.]/g, '');
+      const base = parseFloat(el.dataset.usdPrice || raw);
+      if (!el.dataset.usdPrice) el.dataset.usdPrice = raw;
+      if (!base) return;
+      const converted = (base * current.rate).toFixed(current.rate >= 100 ? 0 : 2);
+      el.textContent = current.symbol + converted;
+    });
+  }
+
+  function setCurrency(opt) {
+    current = { code: opt.dataset.currency, symbol: opt.dataset.symbol, rate: parseFloat(opt.dataset.rate), flag: opt.dataset.flag };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+    dropdown.classList.remove('open');
+    btn.setAttribute('aria-expanded', 'false');
+    applyConversion();
+    Toast.show(`Currency changed to ${current.code}`, 'info', 2500);
+  }
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = dropdown.classList.contains('open');
+    dropdown.classList.toggle('open', !isOpen);
+    btn.setAttribute('aria-expanded', String(!isOpen));
+  });
+  document.addEventListener('click', () => { dropdown.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); });
+  dropdown.querySelectorAll('.currency-opt').forEach(opt => opt.addEventListener('click', (e) => { e.stopPropagation(); setCurrency(opt); }));
+
+  setTimeout(applyConversion, 100);
+}
+
+// ── PWA Install Banner ───────────────────────────────────────
+function initPWAInstall() {
+  let deferredPrompt = null;
+  if (localStorage.getItem('pwa-dismissed')) return;
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    const banner = document.createElement('div');
+    banner.className = 'pwa-install-banner';
+    banner.innerHTML = `
+      <p>📱 Install TrendMart for a faster, app-like experience!</p>
+      <div class="pwa-actions">
+        <button class="pwa-install-btn">Install App</button>
+        <button class="pwa-dismiss-btn">Not now</button>
+      </div>`;
+    document.body.appendChild(banner);
+    setTimeout(() => banner.classList.add('show'), 3000);
+    banner.querySelector('.pwa-install-btn').addEventListener('click', async () => {
+      banner.remove();
+      deferredPrompt.prompt();
+      const result = await deferredPrompt.userChoice;
+      if (result.outcome === 'accepted') Toast.show('TrendMart installed! 🎉', 'success');
+      deferredPrompt = null;
+    });
+    banner.querySelector('.pwa-dismiss-btn').addEventListener('click', () => {
+      banner.classList.remove('show');
+      setTimeout(() => banner.remove(), 350);
+      localStorage.setItem('pwa-dismissed', '1');
+    });
+  });
+}
+
+// ── Recently Viewed Strip (client-side) ──────────────────────
+const RecentlyViewed = {
+  STORAGE_KEY: 'tm-recently-viewed',
+  MAX: 10,
+
+  get() {
+    try { return JSON.parse(localStorage.getItem(this.STORAGE_KEY) || '[]'); } catch { return []; }
+  },
+
+  add(product) {
+    if (!product || !product.slug) return;
+    let items = this.get().filter(p => p.slug !== product.slug);
+    items.unshift(product);
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(items.slice(0, this.MAX)));
+  },
+
+  renderStrip(currentSlug) {
+    const items = this.get().filter(p => p.slug !== currentSlug);
+    if (!items.length) return;
+    const container = document.getElementById('recently-viewed-strip');
+    if (!container) return;
+    container.innerHTML = `
+      <h3>👁️ Recently Viewed</h3>
+      <div class="rv-scroll">
+        ${items.slice(0, 8).map(p => `
+          <a href="/products/${p.slug}/" class="rv-card" aria-label="${p.name}">
+            <img src="${p.img}" alt="${p.name}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=130&h=100&fit=crop'">
+            <div class="rv-card-body">
+              <div class="rv-card-name">${p.name}</div>
+              <div class="rv-card-price">${p.price}</div>
+            </div>
+          </a>`).join('')}
+      </div>`;
+    container.style.display = 'block';
+  },
+
+  trackCurrentProduct() {
+    const productData = window.__productData;
+    if (!productData) return;
+    this.add(productData);
+    this.renderStrip(productData.slug);
+  }
+};
+
 // ── Init all ────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   initDarkMode();
@@ -703,4 +882,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initQuickView();
   initActiveCategoryNav();
   initDjangoMessages();
+  initCurrencySelector();
+  initPWAInstall();
+  RecentlyViewed.trackCurrentProduct();
 });

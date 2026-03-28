@@ -1,5 +1,18 @@
 import json
-from functools import wraps
+# =============================================================================
+# Author:       George Papasotiriou
+# Date Created: March 28, 2026
+# Project:      TrendMart E-Commerce Platform
+# File:         shop/views.py
+# Description:  All Django view functions for TrendMart. Covers home page,
+#               product listing/search/filtering, product detail, user auth
+#               (register/login/logout/profile), shopping cart, checkout,
+#               orders, wishlist, AJAX ratings, AI assistant chatbot,
+#               recommender system, retailer dashboard, and admin panel.
+# =============================================================================
+
+from functools import wraps  # Preserves decorated function's __name__ and docstring
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
@@ -7,32 +20,46 @@ from django.contrib.auth.models import User
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-from django.db.models import Q, Avg, Count
+from django.db import models as django_models
+from django.db.models import Q, Avg, Count, F, Sum
 from django.core.paginator import Paginator
 from django.utils import timezone
 
+# Import all models from the shop app
 from .models import (
     Category, Product, Brand, ProductRating, WishlistItem,
     ViewedProduct, Cart, CartItem, Order, OrderItem, UserProfile,
-    RetailerProfile
+    RetailerProfile, ProductVariant
 )
+# Import all forms from the shop app
 from .forms import (
     CustomerRegistrationForm, RetailerRegistrationForm, UserProfileForm,
     ProductRatingForm, ProductForm, CategoryForm, BrandForm, CheckoutForm
 )
 
 
-# ─── Decorators ──────────────────────────────────────────────────────────────
+# ─── Access Control Decorators ────────────────────────────────────────────────
+# These decorators wrap views and enforce role-based access control (RBAC).
+# They redirect unauthorised users rather than returning 403 responses, which
+# provides a better UX and prevents information leakage.
 
 def admin_required(view_func):
+    """
+    Decorator that restricts a view to admin users only.
+    Accepts Django staff (is_staff=True) OR users with profile.role='admin'.
+    All others are redirected to the home page with an error message.
+    """
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
+            # Redirect unauthenticated visitors to login
             messages.error(request, "Please log in to continue.")
             return redirect('shop:login')
+        # Django superusers and staff always pass
         if request.user.is_staff:
             return view_func(request, *args, **kwargs)
         try:
+            # Also accept users whose UserProfile.role is explicitly 'admin'
             if request.user.profile.role == 'admin':
                 return view_func(request, *args, **kwargs)
         except UserProfile.DoesNotExist:
@@ -43,12 +70,17 @@ def admin_required(view_func):
 
 
 def retailer_required(view_func):
+    """
+    Decorator that restricts a view to retailer or admin users.
+    Redirects regular customers and unauthenticated visitors.
+    """
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect('shop:login')
         try:
             profile = request.user.profile
+            # Both retailers AND admins can access retailer views
             if profile.role in ('retailer', 'admin') or request.user.is_staff:
                 return view_func(request, *args, **kwargs)
         except UserProfile.DoesNotExist:
@@ -258,6 +290,9 @@ def product_detail(request, slug):
     if request.user.is_authenticated:
         in_wishlist = WishlistItem.objects.filter(user=request.user, product=product).exists()
 
+    from .templatetags.shop_tags import product_image
+    product_img_url = product_image(product, 600, 600)
+
     context = {
         'product': product,
         'related': related,
@@ -268,27 +303,89 @@ def product_detail(request, slug):
         'rating_dist': rating_dist,
         'rating_dist_items': sorted(rating_dist.items(), reverse=True),
         'in_wishlist': in_wishlist,
+        'product_img_url': product_img_url,
     }
     return render(request, 'shop/product_detail.html', context)
 
 
 def search_view(request):
     query = request.GET.get('q', '').strip()
+    brand_filter = request.GET.get('brand', '')
+    min_price = request.GET.get('min_price', '')
+    max_price = request.GET.get('max_price', '')
+    sort = request.GET.get('sort', 'relevance')
     products = Product.objects.none()
+
     if query:
-        products = Product.objects.filter(
-            is_active=True, is_approved=True
-        ).filter(
-            Q(name__icontains=query) |
-            Q(description__icontains=query) |
-            Q(tags__icontains=query) |
-            Q(brand__name__icontains=query) |
-            Q(category__name__icontains=query)
-        ).distinct()
+        words = [w for w in query.split() if len(w) > 1]
+
+        name_exact = Product.objects.filter(is_active=True, is_approved=True, name__iexact=query)
+        name_starts = Product.objects.filter(is_active=True, is_approved=True, name__istartswith=query)
+        name_contains = Product.objects.filter(is_active=True, is_approved=True, name__icontains=query)
+        brand_match = Product.objects.filter(is_active=True, is_approved=True, brand__name__icontains=query)
+        desc_match = Product.objects.filter(is_active=True, is_approved=True).filter(
+            Q(description__icontains=query) | Q(short_description__icontains=query) |
+            Q(tags__icontains=query) | Q(category__name__icontains=query)
+        )
+        multi_word = Product.objects.none()
+        if words and len(words) > 1:
+            q = Q()
+            for w in words:
+                q |= Q(name__icontains=w) | Q(brand__name__icontains=w) | Q(tags__icontains=w)
+            multi_word = Product.objects.filter(is_active=True, is_approved=True).filter(q)
+
+        combined_ids_ordered = []
+        seen = set()
+        for qs in [name_exact, name_starts, name_contains, brand_match, multi_word, desc_match]:
+            for pid in qs.values_list('id', flat=True):
+                if pid not in seen:
+                    combined_ids_ordered.append(pid)
+                    seen.add(pid)
+
+        products = Product.objects.filter(id__in=combined_ids_ordered).select_related('brand', 'category')
+
+        if brand_filter:
+            products = products.filter(brand__slug=brand_filter)
+        if min_price:
+            try:
+                products = products.filter(price__gte=float(min_price))
+            except ValueError:
+                pass
+        if max_price:
+            try:
+                products = products.filter(price__lte=float(max_price))
+            except ValueError:
+                pass
+
+        sort_map = {
+            'price_asc': 'price',
+            'price_desc': '-price',
+            'popular': '-views_count',
+            'newest': '-created_at',
+        }
+        if sort in sort_map:
+            products = products.order_by(sort_map[sort])
+        else:
+            from django.db.models import Case, When, IntegerField
+            preserved = Case(
+                *[When(id=pid, then=pos) for pos, pid in enumerate(combined_ids_ordered)],
+                output_field=IntegerField()
+            )
+            products = products.order_by(preserved)
+
+    brands = Brand.objects.filter(is_active=True)
+    paginator = Paginator(products, 12)
+    page = paginator.get_page(request.GET.get('page', 1))
+
     return render(request, 'shop/search.html', {
         'query': query,
-        'products': products,
-        'result_count': products.count(),
+        'products': page,
+        'result_count': paginator.count if query else 0,
+        'brands': brands,
+        'selected_brand': brand_filter,
+        'min_price': min_price,
+        'max_price': max_price,
+        'sort': sort,
     })
 
 
@@ -296,14 +393,20 @@ def search_autocomplete(request):
     query = request.GET.get('q', '').strip()
     results = []
     if query and len(query) >= 2:
-        for p in Product.objects.filter(is_active=True, is_approved=True, name__icontains=query)[:8]:
+        from .templatetags.shop_tags import product_image
+        for p in Product.objects.filter(
+            is_active=True, is_approved=True
+        ).filter(
+            Q(name__icontains=query) | Q(brand__name__icontains=query)
+        ).select_related('brand', 'category')[:8]:
             results.append({
                 'id': p.id,
                 'name': p.name,
                 'price': str(p.get_effective_price()),
                 'slug': p.slug,
-                'image': p.image.url if p.image else '',
+                'image': product_image(p, 80, 80),
                 'category': p.category.name,
+                'brand': p.brand.name if p.brand else '',
             })
     return JsonResponse({'results': results})
 
@@ -533,6 +636,22 @@ def add_to_cart(request):
     if not created:
         item.quantity += quantity
         item.save()
+    # ── Push real-time stock update via WebSocket (if Channels is enabled) ──
+    # After reducing stock, broadcast the new level to all visitors currently
+    # viewing this product's detail page.  Silently skipped if Channels/Redis
+    # is not installed so the cart still works without WebSocket infrastructure.
+    try:
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            async_to_sync(channel_layer.group_send)(
+                f'stock_{product.slug}',
+                {'type': 'stock_update', 'stock': product.stock, 'slug': product.slug}
+            )
+    except Exception:
+        pass  # Channels not installed or Redis unavailable — non-fatal
+
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return JsonResponse({
             'success': True,
@@ -629,6 +748,12 @@ def checkout(request):
                     item.product.stock -= item.quantity
                     item.product.save(update_fields=['stock'])
             cart.items.all().delete()
+            # Send order confirmation email (fires async-style; failures are swallowed)
+            try:
+                from .emails import send_order_confirmation
+                send_order_confirmation(order)
+            except Exception:
+                pass  # Never let email failure block checkout
             return redirect('shop:order_success', order_number=order.order_number)
         messages.error(request, "Please fix the form errors.")
     else:
@@ -704,8 +829,16 @@ def rate_product(request, slug):
         product=product, user=request.user,
         defaults={'rating': rating_val, 'review': review_text, 'is_verified_purchase': has_purchased}
     )
+
+    photo = request.FILES.get('review_photo')
+    if photo:
+        rating.review_photo = photo
+        rating.save(update_fields=['review_photo'])
+
     avg = product.get_avg_rating()
     count = product.get_rating_count()
+
+    photo_url = rating.review_photo.url if rating.review_photo else ''
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return JsonResponse({
@@ -716,24 +849,203 @@ def rate_product(request, slug):
             'username': request.user.get_full_name() or request.user.username,
             'review': review_text,
             'rating': rating_val,
+            'photo_url': photo_url,
         })
     messages.success(request, "Your review has been submitted!")
     return redirect('shop:product_detail', slug=slug)
 
 
+@login_required
+@require_POST
+def mark_review_helpful(request, review_id):
+    from .models import ProductRating
+    review = get_object_or_404(ProductRating, id=review_id)
+    if review.user == request.user:
+        return JsonResponse({'success': False, 'error': "You can't mark your own review as helpful."})
+    review.helpful_count += 1
+    review.save(update_fields=['helpful_count'])
+    return JsonResponse({'success': True, 'helpful_count': review.helpful_count})
+
+
 # ─── AI Assistant ─────────────────────────────────────────────────────────────
+# Conversation history is stored per-user in the Django session so the AI
+# remembers what was said earlier in the same chat session (like ChatGPT).
+# Max 10 message pairs kept to avoid token limits.
+
+AI_MAX_HISTORY = 10  # maximum user+assistant turns to keep in session memory
 
 def ai_assistant(request):
+    """
+    POST endpoint for the TrendMart AI assistant chat widget.
+    Tries the OpenRouter API first (real LLM); falls back to the rule-based
+    keyword engine if the API call fails or no key is configured.
+    Supports 'clear_history' action to reset conversation memory.
+    """
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            user_msg = data.get('message', '').strip().lower()
+            user_msg = data.get('message', '').strip()
+            action = data.get('action', '')
         except (json.JSONDecodeError, AttributeError):
             user_msg = ''
+            action = ''
 
-        response = _ai_response(request, user_msg)
+        # Allow the frontend to wipe conversation memory (e.g. "New chat" button)
+        if action == 'clear_history':
+            request.session.pop('ai_history', None)
+            return JsonResponse({'reply': "Chat cleared! How can I help you? 😊"})
+
+        from django.conf import settings
+        api_key = getattr(settings, 'OPENROUTER_API_KEY', '') or getattr(settings, 'OPENAI_API_KEY', '')
+
+        if api_key and user_msg:
+            response = _ai_response_openrouter(request, user_msg, api_key)
+        else:
+            response = _ai_response(request, user_msg.lower())
+
         return JsonResponse({'reply': response})
     return JsonResponse({'error': 'Invalid request'}, status=400)
+
+
+def _ai_response_openrouter(request, user_msg, api_key):
+    """
+    Sends the conversation to OpenRouter's OpenAI-compatible API.
+    Maintains a rolling window of conversation history in the session so the
+    AI has context from earlier in the same chat (memory across turns).
+    On any network/API failure, falls back to the keyword-based engine.
+    """
+    import urllib.request as urlreq
+    import json as json_lib
+    from django.conf import settings
+
+    # ── Build live context for the system prompt ──────────────
+    cart = get_or_create_cart(request)
+    cart_summary = (
+        f"{cart.get_item_count()} item(s), total ${cart.get_total():.2f}"
+        if cart.get_item_count() else "empty"
+    )
+    user_name = request.user.first_name if request.user.is_authenticated else "guest"
+    is_logged_in = request.user.is_authenticated
+
+    # Fetch popular products to give the AI real catalogue awareness
+    recent_products = list(
+        Product.objects.filter(is_active=True, is_approved=True)
+        .order_by('-views_count')[:8]
+        .values('name', 'price', 'sale_price', 'slug', 'category__name')
+    )
+    products_ctx = '; '.join([
+        f"{p['name']} (${p['sale_price'] or p['price']}, {p['category__name']}) → /products/{p['slug']}/"
+        for p in recent_products
+    ])
+
+    # Fetch sale items for deal-awareness
+    sale_products = list(
+        Product.objects.filter(is_active=True, is_approved=True, sale_price__isnull=False)
+        .order_by('?')[:4]
+        .values('name', 'price', 'sale_price', 'slug')
+    )
+    sales_ctx = '; '.join([
+        f"{p['name']} was ${p['price']} now ${p['sale_price']}"
+        for p in sale_products
+    ]) or "None currently"
+
+    # Order history summary for logged-in users
+    orders_ctx = "Not logged in"
+    if is_logged_in:
+        recent_orders = Order.objects.filter(user=request.user).order_by('-created_at')[:3]
+        if recent_orders.exists():
+            orders_ctx = '; '.join([
+                f"#{o.order_number} ({o.get_status_display()}, ${o.total_amount})"
+                for o in recent_orders
+            ])
+        else:
+            orders_ctx = "No orders yet"
+
+    system_prompt = f"""You are TrendMart AI — an intelligent, friendly, and knowledgeable shopping assistant \
+for TrendMart, a modern e-commerce platform owned by George Papasotiriou.
+
+USER CONTEXT:
+- Name: {user_name} | Logged in: {is_logged_in}
+- Cart: {cart_summary}
+- Recent orders: {orders_ctx}
+
+LIVE CATALOGUE (popular products):
+{products_ctx}
+
+CURRENT SALES:
+{sales_ctx}
+
+YOUR CAPABILITIES:
+- Find, recommend, and compare products from the TrendMart catalogue
+- Help with orders, returns, wishlist, account management
+- Answer questions about shipping (standard 3-5 days, express 1-2 days, free over $50), returns (30 days), warranty
+- Give personalised recommendations based on conversation context
+- Explain product features and help users decide between options
+
+FORMATTING RULES:
+- When referencing a product, use: 🔗[Product Name — $price](/products/product-slug/)
+- Use **bold** for key terms, bullet lists for multiple items
+- Keep responses concise (under 250 words) but thorough
+- Always end with a helpful follow-up question or suggestion
+- Never invent products not in the catalogue — say you'll search instead
+
+PERSONALITY: Warm, enthusiastic, expert. Like a knowledgeable friend who loves shopping. \
+Use emojis sparingly but effectively. Be honest about limitations."""
+
+    # ── Retrieve/update conversation history from session ─────
+    history = request.session.get('ai_history', [])
+
+    # Append the new user message to the rolling history
+    history.append({'role': 'user', 'content': user_msg})
+
+    # Trim to last AI_MAX_HISTORY * 2 messages (user+assistant pairs)
+    if len(history) > AI_MAX_HISTORY * 2:
+        history = history[-(AI_MAX_HISTORY * 2):]
+
+    # Construct the full messages list: system + history
+    messages = [{'role': 'system', 'content': system_prompt}] + history
+
+    payload = {
+        'model': getattr(settings, 'OPENROUTER_MODEL', 'openai/gpt-4o-mini'),
+        'messages': messages,
+        'max_tokens': 400,
+        'temperature': 0.7,
+        # OpenRouter headers for analytics/attribution (optional)
+    }
+
+    try:
+        req = urlreq.Request(
+            # OpenRouter uses the same endpoint format as OpenAI
+            'https://openrouter.ai/api/v1/chat/completions',
+            data=json_lib.dumps(payload).encode(),
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json',
+                # Optional OpenRouter headers for usage tracking
+                'HTTP-Referer': 'https://trendmart.com',
+                'X-Title': 'TrendMart AI Assistant',
+            },
+            method='POST'
+        )
+        with urlreq.urlopen(req, timeout=12) as resp:
+            result = json_lib.loads(resp.read().decode())
+            ai_reply = result['choices'][0]['message']['content']
+
+        # Save the assistant's reply into history and persist in session
+        history.append({'role': 'assistant', 'content': ai_reply})
+        request.session['ai_history'] = history
+        request.session.modified = True
+
+        return ai_reply
+
+    except Exception:
+        # If the API call fails for any reason, use the keyword fallback
+        # and still save a fallback message to history
+        fallback = _ai_response(request, user_msg.lower())
+        history.append({'role': 'assistant', 'content': fallback})
+        request.session['ai_history'] = history
+        request.session.modified = True
+        return fallback
 
 
 def _ai_response(request, msg):
@@ -952,14 +1264,80 @@ def _ai_response(request, msg):
 
 @admin_required
 def admin_dashboard(request):
+    """
+    Admin overview dashboard with stats, recent orders, pending approvals,
+    and Chart.js analytics data (revenue trends + top products by revenue).
+    All heavy queries are done here so the template stays logic-free.
+    """
+    from django.db.models.functions import TruncDate
+    import json as _json
+    from datetime import timedelta
+
+    # ── Revenue chart: last 30 days, one data point per day ──
+    thirty_days_ago = timezone.now() - timedelta(days=30)
+    daily_revenue = (
+        Order.objects
+        .filter(created_at__gte=thirty_days_ago)
+        .annotate(day=TruncDate('created_at'))
+        .values('day')
+        .annotate(revenue=Sum('total_amount'), count=Count('id'))
+        .order_by('day')
+    )
+    # Build a complete 30-day date series (fill missing days with 0)
+    date_map = {entry['day']: {'revenue': float(entry['revenue'] or 0), 'count': entry['count']}
+                for entry in daily_revenue}
+    chart_labels = []
+    chart_revenue = []
+    chart_orders = []
+    for i in range(30):
+        day = (timezone.now() - timedelta(days=29 - i)).date()
+        chart_labels.append(day.strftime('%b %d'))
+        data = date_map.get(day, {'revenue': 0, 'count': 0})
+        chart_revenue.append(data['revenue'])
+        chart_orders.append(data['count'])
+
+    # ── Top 8 products by total revenue generated from OrderItems ──
+    top_products = (
+        OrderItem.objects
+        .values('product_name')
+        .annotate(total_revenue=Sum(F('product_price') * F('quantity')),
+                  total_sold=Sum('quantity'))
+        .order_by('-total_revenue')[:8]
+    )
+
+    # ── Revenue by category ──
+    category_revenue = (
+        OrderItem.objects
+        .filter(product__isnull=False)
+        .values('product__category__name')
+        .annotate(revenue=Sum(F('product_price') * F('quantity')))
+        .order_by('-revenue')[:6]
+    )
+
+    # ── Summary stats ──
+    total_revenue = Order.objects.aggregate(t=Sum('total_amount'))['t'] or 0
+
     context = {
         'total_products': Product.objects.count(),
         'total_orders': Order.objects.count(),
         'total_users': User.objects.count(),
         'total_retailers': RetailerProfile.objects.count(),
+        'total_revenue': total_revenue,
         'recent_orders': Order.objects.select_related('user').order_by('-created_at')[:10],
         'pending_retailers': RetailerProfile.objects.filter(is_approved=False).select_related('user'),
         'pending_products': Product.objects.filter(is_approved=False).select_related('retailer')[:10],
+        # Chart.js data — JSON-encoded for safe embedding in <script> tags
+        'chart_labels_json': _json.dumps(chart_labels),
+        'chart_revenue_json': _json.dumps(chart_revenue),
+        'chart_orders_json': _json.dumps(chart_orders),
+        'top_products_json': _json.dumps([
+            {'name': p['product_name'], 'revenue': float(p['total_revenue'] or 0), 'sold': p['total_sold'] or 0}
+            for p in top_products
+        ]),
+        'category_revenue_json': _json.dumps([
+            {'name': p['product__category__name'] or 'Uncategorised', 'revenue': float(p['revenue'] or 0)}
+            for p in category_revenue
+        ]),
     }
     return render(request, 'shop/admin_panel/dashboard.html', context)
 
@@ -1102,11 +1480,25 @@ def admin_orders(request):
 
 @admin_required
 def admin_order_status(request, order_number):
+    """
+    Update an order's status from the admin panel.
+    When status changes to 'shipped', automatically sends a dispatch
+    notification email to the customer.
+    """
     order = get_object_or_404(Order, order_number=order_number)
     if request.method == 'POST':
         status = request.POST.get('status')
         if status in dict(Order.STATUS_CHOICES):
+            old_status = order.status
             order.status = status
             order.save(update_fields=['status'])
             messages.success(request, f"Order #{order_number} status updated to {status}.")
+            # Trigger dispatch email when order first moves to 'shipped'
+            if status == 'shipped' and old_status != 'shipped' and order.email:
+                try:
+                    from .emails import send_dispatch_notification
+                    send_dispatch_notification(order)
+                    messages.info(request, f"Dispatch email sent to {order.email}.")
+                except Exception:
+                    pass  # Email failures are non-fatal
     return redirect('shop:admin_orders')

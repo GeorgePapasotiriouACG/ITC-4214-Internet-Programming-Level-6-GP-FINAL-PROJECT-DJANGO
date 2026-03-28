@@ -1,0 +1,31 @@
+# robots.txt — TrendMart E-Commerce Platform
+# Author: George Papasotiriou
+# Instructs search engine crawlers which pages to index and which to skip.
+# More info: https://developers.google.com/search/docs/crawling-indexing/robots/intro
+
+User-agent: *
+
+# Allow full crawling of public-facing pages
+Allow: /
+Allow: /products/
+Allow: /category/
+Allow: /search/
+Allow: /static/
+
+# Block crawlers from private/member-only pages
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /orders/
+Disallow: /dashboard/
+Disallow: /profile/
+Disallow: /wishlist/
+Disallow: /admin-panel/
+Disallow: /django-admin/
+Disallow: /ai/chat/
+
+# Block crawlers from user-specific query strings
+Disallow: /*?page=*&*
+Disallow: /search/?q=
+
+# Point crawlers to the XML sitemap for efficient discovery
+Sitemap: https://{{ request.get_host }}/sitemap.xml

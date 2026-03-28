@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<!--
+  Author:       George Papasotiriou
+  Date Created: March 28, 2026
+  Project:      TrendMart E-Commerce Platform
+  File:         templates/shop/emails/dispatch_notification.html
+  Description:  HTML email template for order dispatch notification.
+                Sent when an admin updates the order status to "shipped".
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Order Has Shipped — {{ order.order_number }}</title>
+  <style>
+    body { margin:0; padding:0; background:#F3F4F6; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; color:#1F2937; }
+    .wrapper { max-width:600px; margin:32px auto; background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,.08); }
+    .header { background:linear-gradient(135deg,#10B981,#059669); padding:40px 32px; text-align:center; }
+    .header h1 { color:#fff; margin:0; font-size:28px; }
+    .header p { color:rgba(255,255,255,.8); margin:8px 0 0; font-size:15px; }
+    .body { padding:32px; }
+    .tracker { display:flex; justify-content:space-between; margin:28px 0; }
+    .step { flex:1; text-align:center; position:relative; }
+    .step::after { content:''; position:absolute; top:14px; left:55%; width:90%; height:2px; background:#10B981; z-index:0; }
+    .step:last-child::after { display:none; }
+    .step-dot { width:28px; height:28px; border-radius:50%; background:#10B981; color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; position:relative; z-index:1; }
+    .step-label { font-size:11px; color:#6B7280; margin-top:6px; display:block; font-weight:500; }
+    .step.active .step-dot { background:#7C3AED; box-shadow:0 0 0 4px rgba(124,58,237,.2); }
+    .step.active .step-label { color:#7C3AED; font-weight:700; }
+    .info-box { background:#ECFDF5; border:1px solid #A7F3D0; border-radius:10px; padding:20px; margin:24px 0; }
+    .info-box h3 { color:#065F46; margin:0 0 8px; font-size:15px; }
+    .info-box p { color:#047857; margin:0; font-size:14px; line-height:1.6; }
+    .cta { text-align:center; margin:28px 0; }
+    .cta a { display:inline-block; background:#10B981; color:#fff; text-decoration:none; padding:14px 32px; border-radius:50px; font-weight:700; font-size:15px; }
+    .footer { background:#F9FAFB; border-top:1px solid #E5E7EB; padding:24px 32px; text-align:center; }
+    .footer p { color:#9CA3AF; font-size:12px; margin:4px 0; }
+    .footer a { color:#10B981; text-decoration:none; }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+  <!-- Header -->
+  <div class="header">
+    <h1>📦 Your Order is On Its Way!</h1>
+    <p>Order #{{ order.order_number }} has been dispatched</p>
+  </div>
+
+  <div class="body">
+    <p style="font-size:18px;font-weight:600;margin-bottom:8px">Hi {{ order.full_name }}!</p>
+    <p style="color:#6B7280;line-height:1.6;margin-bottom:24px">
+      Great news! Your TrendMart order has been shipped and is on its way to you.
+      Sit tight — your goodies are coming! 🎉
+    </p>
+
+    <!-- Progress tracker -->
+    <div class="tracker" role="list" aria-label="Order progress">
+      <div class="step" role="listitem">
+        <div class="step-dot">✓</div>
+        <span class="step-label">Ordered</span>
+      </div>
+      <div class="step" role="listitem">
+        <div class="step-dot">✓</div>
+        <span class="step-label">Processing</span>
+      </div>
+      <div class="step active" role="listitem">
+        <div class="step-dot">✈</div>
+        <span class="step-label">Shipped</span>
+      </div>
+      <div class="step" role="listitem">
+        <div class="step-dot" style="background:#D1D5DB;color:#6B7280">📬</div>
+        <span class="step-label">Delivered</span>
+      </div>
+    </div>
+
+    <!-- Info box -->
+    <div class="info-box">
+      <h3>📅 Estimated Delivery</h3>
+      <p>
+        Your order is expected to arrive within <strong>3–5 business days</strong> (standard shipping)
+        or <strong>1–2 business days</strong> if you selected express delivery.<br><br>
+        Shipping to: <strong>{{ order.address }}{% if order.city %}, {{ order.city }}{% endif %}{% if order.country %}, {{ order.country }}{% endif %}</strong>
+      </p>
+    </div>
+
+    <!-- Order summary -->
+    <h3 style="font-size:15px;margin-bottom:12px">📋 Order Summary</h3>
+    {% for item in order.items.all %}
+    <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #F3F4F6;font-size:14px">
+      <span>{{ item.product_name }}{% if item.size %} ({{ item.size }}){% endif %} &times; {{ item.quantity }}</span>
+      <span style="font-weight:600">${{ item.get_subtotal }}</span>
+    </div>
+    {% endfor %}
+    <div style="display:flex;justify-content:space-between;padding:14px 0;font-size:16px;font-weight:700;color:#7C3AED">
+      <span>Total Paid</span>
+      <span>${{ order.total_amount }}</span>
+    </div>
+
+    <!-- CTA -->
+    <div class="cta">
+      <a href="{{ site_url }}/orders/{{ order.order_number }}/">Track My Order</a>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Questions? <a href="mailto:support@trendmart.com">support@trendmart.com</a></p>
+    <p>30-day hassle-free returns &mdash; No questions asked</p>
+    <p style="margin-top:12px">&copy; 2026 {{ site_name }}. Developed by George Papasotiriou.</p>
+  </div>
+</div>
+</body>
+</html>

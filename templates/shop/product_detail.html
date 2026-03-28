@@ -1,4 +1,5 @@
 {% extends "shop/base.html" %}
+{% load shop_tags %}
 {% block title %}{{ product.name }}{% endblock %}
 
 {% block content %}
@@ -15,11 +16,7 @@
     <!-- Image -->
     <div>
       <div class="product-main-image">
-        {% if product.image %}
-          <img src="{{ product.image.url }}" alt="{{ product.name }}" loading="eager">
-        {% else %}
-          <img src="https://placehold.co/600x600/e2d9f3/7C3AED?text={{ product.name|urlencode }}" alt="{{ product.name }}">
-        {% endif %}
+        <img src="{% product_image product 600 600 %}" alt="{{ product.name }}" loading="eager" id="main-product-img">
       </div>
       {% if product.images.all %}
       <div style="display:flex;gap:.5rem;margin-top:.75rem;flex-wrap:wrap" role="list" aria-label="Additional product images">
@@ -80,7 +77,45 @@
         {% endif %}
       </div>
 
-      <!-- Size Selector -->
+      <!-- Product Variants (size/color) -->
+      {% with variants=product.variants.filter %}
+      {% if product.variants.exists %}
+      <div style="margin-bottom:1.25rem">
+        {% regroup product.variants.all by size as size_groups %}
+        {% if size_groups|length > 1 or product.variants.first.size %}
+        <div style="margin-bottom:.75rem">
+          <div style="font-size:.875rem;font-weight:700;margin-bottom:.5rem" id="variant-size-label">Select Size</div>
+          <div class="size-selector" role="group" aria-labelledby="variant-size-label">
+            {% for v in product.variants.all %}
+            {% if v.size and v.is_active %}
+            <button type="button" class="size-btn {% if forloop.first %}selected{% endif %} {% if not v.is_in_stock %}out-of-stock{% endif %}"
+                    data-size="{{ v.size }}" data-variant-id="{{ v.id }}" data-variant-price="{{ v.get_price }}" data-stock="{{ v.stock }}">{{ v.size }}</button>
+            {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+        {% comment %}Color swatches{% endcomment %}
+        {% if product.variants.first.color %}
+        <div>
+          <div style="font-size:.875rem;font-weight:700;margin-bottom:.5rem" id="variant-color-label">Color</div>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap" role="group" aria-labelledby="variant-color-label">
+            {% for v in product.variants.all %}
+            {% if v.color and v.is_active %}
+            <button type="button" class="color-swatch {% if forloop.first %}selected{% endif %}"
+                    data-color="{{ v.color }}" data-variant-id="{{ v.id }}" data-variant-price="{{ v.get_price }}"
+                    title="{{ v.color }}" aria-label="{{ v.color }}"
+                    style="width:28px;height:28px;border-radius:50%;border:2px solid var(--border);cursor:pointer;background:{{ v.color_hex|default:v.color }};transition:transform .15s,box-shadow .15s"
+                    onclick="selectColorSwatch(this)">
+            </button>
+            {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+      {% else %}
+      <!-- Fallback: size from product field -->
       {% with sizes=product.get_sizes_list %}
       {% if sizes %}
       <div style="margin-bottom:1.25rem">
@@ -93,6 +128,8 @@
       </div>
       {% endif %}
       {% endwith %}
+      {% endif %}
+      {% endwith %}
 
       <!-- Add to Cart -->
       {% if product.is_in_stock %}
@@ -100,6 +137,7 @@
         {% csrf_token %}
         <input type="hidden" name="product_id" value="{{ product.id }}">
         <input type="hidden" name="size" id="selected-size" value="{{ product.get_sizes_list|first }}">
+        <input type="hidden" name="variant_id" id="selected-variant-id" value="">
         <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:1rem">
           <label for="qty-input" class="sr-only">Quantity</label>
           <div class="qty-control">
@@ -209,7 +247,7 @@
     {% if user.is_authenticated %}
     <div class="card mb-6">
       <h3 class="card-title">{% if user_rating %}Update Your Review{% else %}Write a Review{% endif %}</h3>
-      <form id="rating-form" action="{% url 'shop:rate_product' product.slug %}" method="post">
+      <form id="rating-form" action="{% url 'shop:rate_product' product.slug %}" method="post" enctype="multipart/form-data">
         {% csrf_token %}
         <div class="form-group">
           <label class="form-label" id="star-label">Your Rating <span class="required">*</span></label>
@@ -225,6 +263,20 @@
           <label class="form-label" for="review-text">Your Review</label>
           <textarea name="review" id="review-text" class="form-control" rows="4" placeholder="Share your experience with this product…">{{ user_rating.review|default:"" }}</textarea>
         </div>
+        <div class="form-group">
+          <label class="form-label" for="review-photo-input">Add a Photo <span class="text-muted text-sm">(optional)</span></label>
+          {% if user_rating and user_rating.review_photo %}
+          <div style="margin-bottom:.5rem">
+            <img src="{{ user_rating.review_photo.url }}" alt="Your review photo"
+                 style="width:100px;height:100px;object-fit:cover;border-radius:var(--radius-sm);border:2px solid var(--border)">
+            <span class="text-muted text-sm" style="display:block;margin-top:.25rem">Upload a new photo to replace it</span>
+          </div>
+          {% endif %}
+          <input type="file" name="review_photo" id="review-photo-input" class="form-control" accept="image/*">
+          <div id="review-photo-preview" style="margin-top:.5rem;display:none">
+            <img id="review-preview-img" src="" alt="Preview" style="width:100px;height:100px;object-fit:cover;border-radius:var(--radius-sm)">
+          </div>
+        </div>
         <button type="submit" class="btn btn-primary">Submit Review</button>
       </form>
     </div>
@@ -238,7 +290,7 @@
     <!-- Reviews List -->
     <div id="reviews-list">
       {% for review in ratings %}
-      <article class="review-card">
+      <article class="review-card" data-review-id="{{ review.id }}">
         <div class="review-header">
           <div class="review-avatar" aria-hidden="true">{{ review.user.first_name|first|upper|default:review.user.username|first|upper }}</div>
           <div>
@@ -257,6 +309,28 @@
           </div>
         </div>
         {% if review.review %}<p class="review-text">{{ review.review }}</p>{% endif %}
+        {% if review.review_photo %}
+        <div class="review-photo-wrap">
+          <a href="{{ review.review_photo.url }}" target="_blank" rel="noopener" aria-label="View full-size review photo">
+            <img src="{{ review.review_photo.url }}" alt="Review photo by {{ review.user.get_full_name|default:review.user.username }}" loading="lazy" class="review-photo">
+          </a>
+        </div>
+        {% endif %}
+        <div class="review-footer">
+          {% if user.is_authenticated and review.user != user %}
+          <button class="helpful-btn" data-review-id="{{ review.id }}"
+                  aria-label="Mark review by {{ review.user.get_full_name|default:review.user.username }} as helpful">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg>
+            <span class="helpful-label">Helpful</span>
+            <span class="helpful-count">({{ review.helpful_count }})</span>
+          </button>
+          {% else %}
+          <span class="text-muted text-sm">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg>
+            {{ review.helpful_count }} found this helpful
+          </span>
+          {% endif %}
+        </div>
       </article>
       {% empty %}
         <div class="empty-state" style="padding:2rem">
@@ -266,16 +340,199 @@
     </div>
   </section>
 
+  <!-- Recently Viewed Strip -->
+  <div class="recently-viewed-strip container" id="recently-viewed-strip" style="display:none"></div>
+
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+/* ── Review photo preview ── */
+document.getElementById('review-photo-input')?.addEventListener('change', function() {
+  const file = this.files[0];
+  const preview = document.getElementById('review-photo-preview');
+  const img = document.getElementById('review-preview-img');
+  if (file && file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = e => { img.src = e.target.result; preview.style.display = 'block'; };
+    reader.readAsDataURL(file);
+  } else {
+    preview.style.display = 'none';
+  }
+});
+
+/* ── Mark review helpful (AJAX) ── */
+document.querySelectorAll('.helpful-btn').forEach(btn => {
+  const voted = JSON.parse(localStorage.getItem('tm-helpful-votes') || '[]');
+  const id = btn.dataset.reviewId;
+  if (voted.includes(id)) btn.classList.add('voted');
+
+  btn.addEventListener('click', () => {
+    if (btn.classList.contains('voted')) return;
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value
+                    || '{{ csrf_token }}';
+    fetch(`/review/${id}/helpful/`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        btn.classList.add('voted');
+        btn.querySelector('.helpful-count').textContent = `(${data.helpful_count})`;
+        const votes = JSON.parse(localStorage.getItem('tm-helpful-votes') || '[]');
+        votes.push(id);
+        localStorage.setItem('tm-helpful-votes', JSON.stringify(votes));
+      }
+    });
+  });
+});
+
 function adjustQty(delta) {
   const input = document.getElementById('qty-input');
   const max = parseInt(input.max, 10) || 99;
   const val = Math.max(1, Math.min(max, parseInt(input.value, 10) + delta));
   input.value = val;
 }
+
+function selectColorSwatch(el) {
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+  const variantId = el.dataset.variantId;
+  const variantPrice = el.dataset.variantPrice;
+  document.getElementById('selected-variant-id').value = variantId || '';
+  if (variantPrice) {
+    const priceEl = document.querySelector('.price-current');
+    if (priceEl) { priceEl.dataset.usdPrice = variantPrice; priceEl.textContent = '$' + parseFloat(variantPrice).toFixed(2); }
+  }
+}
+
+document.querySelectorAll('.size-btn[data-variant-id]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    document.getElementById('selected-variant-id').value = btn.dataset.variantId || '';
+    document.getElementById('selected-size').value = btn.dataset.size || '';
+    if (btn.dataset.variantPrice) {
+      const priceEl = document.querySelector('.price-current');
+      if (priceEl) { priceEl.dataset.usdPrice = btn.dataset.variantPrice; priceEl.textContent = '$' + parseFloat(btn.dataset.variantPrice).toFixed(2); }
+    }
+    if (btn.dataset.stock) {
+      const qtyInput = document.getElementById('qty-input');
+      if (qtyInput) qtyInput.max = btn.dataset.stock;
+    }
+  });
+});
+
+window.__productData = {
+  slug: '{{ product.slug }}',
+  name: '{{ product.name|escapejs }}',
+  img: '{{ product_img_url }}',
+  price: '${{ product.get_effective_price }}',
+};
+
+/* ── WebSocket: Real-time stock warnings ─────────────────────────────────────
+   Connects to the Django Channels StockConsumer for this product.
+   When another user adds the product to their cart and stock drops, the server
+   pushes a stock_update event here and we show a live warning banner.
+   Gracefully no-ops if WebSocket/Channels is not available (e.g. dev without Redis).
+   ─────────────────────────────────────────────────────────────────────────── */
+(function () {
+  const slug = '{{ product.slug }}';
+  const LOW_STOCK_THRESHOLD = 5;  // Show warning when stock is at or below this
+
+  // ── Stock warning banner element ──────────────────────────
+  // Injected once and reused for all updates
+  let stockBanner = document.getElementById('live-stock-banner');
+  if (!stockBanner) {
+    stockBanner = document.createElement('div');
+    stockBanner.id = 'live-stock-banner';
+    stockBanner.setAttribute('role', 'alert');
+    stockBanner.setAttribute('aria-live', 'polite');
+    stockBanner.style.cssText = [
+      'display:none',
+      'align-items:center',
+      'gap:.5rem',
+      'padding:.75rem 1.25rem',
+      'margin:.5rem 0 1rem',
+      'background:#FEF3C7',
+      'border:1.5px solid #F59E0B',
+      'border-radius:var(--radius-sm,8px)',
+      'color:#92400E',
+      'font-size:.9rem',
+      'font-weight:600',
+      'animation:fadeInDown .35s ease',
+    ].join(';');
+    const addBtn = document.getElementById('add-to-cart-btn') || document.querySelector('.btn-primary');
+    if (addBtn) addBtn.parentNode.insertBefore(stockBanner, addBtn);
+  }
+
+  function updateStockUI(stock) {
+    const qtyInput = document.getElementById('qty-input');
+    if (qtyInput) qtyInput.max = stock;  // Prevent ordering more than available
+
+    if (stock === 0) {
+      stockBanner.innerHTML = '⚠️ This item is now <strong>out of stock</strong>. Remove it from your cart or choose a different option.';
+      stockBanner.style.background = '#FEE2E2';
+      stockBanner.style.borderColor = '#EF4444';
+      stockBanner.style.color = '#991B1B';
+      stockBanner.style.display = 'flex';
+      if (addBtn) { addBtn.disabled = true; addBtn.style.opacity = '.5'; }
+    } else if (stock <= LOW_STOCK_THRESHOLD) {
+      stockBanner.innerHTML = `🔥 <strong>Only ${stock} left</strong> — order soon before it sells out!`;
+      stockBanner.style.background = '#FEF3C7';
+      stockBanner.style.borderColor = '#F59E0B';
+      stockBanner.style.color = '#92400E';
+      stockBanner.style.display = 'flex';
+    } else {
+      stockBanner.style.display = 'none';  // Plenty in stock — hide the banner
+    }
+  }
+
+  // ── Try to open a WebSocket connection ────────────────────
+  if (!('WebSocket' in window)) return;  // Very old browser — skip silently
+
+  const wsProtocol = location.protocol === 'https:' ? 'wss' : 'ws';
+  const wsUrl = `${wsProtocol}://${location.host}/ws/stock/${slug}/`;
+
+  let ws;
+  let retryDelay = 2000;  // Start with 2s reconnect delay (exponential backoff)
+
+  function connect() {
+    try {
+      ws = new WebSocket(wsUrl);
+    } catch (e) {
+      return;  // WebSocket not supported or Channels not running — silent fail
+    }
+
+    ws.onmessage = function (event) {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'stock_update' && data.slug === slug) {
+          updateStockUI(data.stock);
+        }
+      } catch (e) {}
+    };
+
+    ws.onclose = function () {
+      // Auto-reconnect with exponential backoff (cap at 30s)
+      setTimeout(connect, Math.min(retryDelay, 30000));
+      retryDelay *= 1.5;
+    };
+
+    ws.onopen = function () {
+      retryDelay = 2000;  // Reset backoff on successful connection
+    };
+
+    ws.onerror = function () {
+      ws.close();  // onclose handler will trigger reconnect
+    };
+  }
+
+  // Only connect if Channels is likely available (check by trying the URL)
+  // This avoids noisy console errors in development without Redis
+  connect();
+})();
 </script>
 {% endblock %}
