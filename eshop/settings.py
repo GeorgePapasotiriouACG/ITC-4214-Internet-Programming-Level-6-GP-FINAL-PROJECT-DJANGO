@@ -218,3 +218,27 @@ else:
     EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'apikey')
     EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'TrendMart <noreply@trendmart.com>')
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+# Ensure AI errors (and other shop errors) are printed to the console in dev.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'shop': {
+            'handlers': ['console'],
+            'level': 'DEBUG' if DEBUG else 'WARNING',
+            'propagate': False,
+        },
+        'shop.ai': {
+            'handlers': ['console'],
+            'level': 'DEBUG' if DEBUG else 'WARNING',
+            'propagate': False,
+        },
+    },
+}

@@ -1218,8 +1218,11 @@ def _ai_response_openrouter(request, user_msg, api_key, image_data='', frontend_
 
         return ai_reply, products_meta
 
-    except Exception:
-        # API failure — use keyword-based fallback
+    except Exception as _exc:
+        # Log the actual error so it is visible in the Django dev server console
+        import logging as _logging
+        _logging.getLogger('shop.ai').error('OpenRouter API error: %s', _exc, exc_info=True)
+        # Graceful fallback to the keyword-based engine
         fallback = _ai_response(request, user_msg.lower() if user_msg else 'hello')
         return fallback, []
 

@@ -1,40 +1,32 @@
 # =============================================================================
-# TrendMart — .gitignore
+# TrendMart — Git Ignore Rules
 # Author: George Papasotiriou
 # Date Created: March 28, 2026
+#
+# Files and directories that should NEVER be committed to version control.
 # =============================================================================
 
-# ── SECRETS — never commit these ──────────────────────────────────────────────
+# ── Environment & Secrets (CRITICAL — never commit these) ─────────────────────
 .env
 *.env
-!.env.example
+.env.local
+.env.production
+.env.staging
 
 # ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
-*.pyo
+*.so
 *.pyd
 .Python
-*.egg
-*.egg-info/
-dist/
-build/
-eggs/
-parts/
-var/
-sdist/
-develop-eggs/
-.installed.cfg
-lib/
-lib64/
 
-# ── Virtual environments ───────────────────────────────────────────────────────
+# ── Virtual Environments ──────────────────────────────────────────────────────
 venv/
 env/
-ENV/
 .venv/
-.env.bak
+ENV/
+virtualenv/
 
 # ── Django ────────────────────────────────────────────────────────────────────
 *.log
@@ -43,31 +35,38 @@ db.sqlite3
 db.sqlite3-journal
 media/
 staticfiles/
-static_collected/
+static_root/
 
-# ── Node (if any frontend tooling is added) ───────────────────────────────────
-node_modules/
-npm-debug.log*
+# ── Build / Distribution ──────────────────────────────────────────────────────
+dist/
+build/
+*.egg-info/
+.eggs/
+*.egg
 
-# ── OS artifacts ──────────────────────────────────────────────────────────────
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# ── IDE / Editor ──────────────────────────────────────────────────────────────
+# ── IDE & Editor files ────────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
-*.sublime-project
-*.sublime-workspace
+*~
+.DS_Store
+Thumbs.db
 
-# ── Coverage & testing ────────────────────────────────────────────────────────
+# ── Testing & Coverage ────────────────────────────────────────────────────────
 .coverage
 htmlcov/
 .pytest_cache/
 .tox/
+*.coveragerc
 
-# ── Cache ─────────────────────────────────────────────────────────────────────
-.cache/
-*.cache
+# ── Node (if any frontend tooling is added) ───────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+*.bak
+*.tmp
+*.orig
