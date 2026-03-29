@@ -1,0 +1,36 @@
+{% extends 'shop/base.html' %}
+{# Author: George Papasotiriou | Date Created: March 28, 2026 | Project: TrendMart #}
+{% block title %}Delete Account — TrendMart{% endblock %}
+{% block content %}
+<div class="container" style="padding-top:3rem;padding-bottom:3rem;max-width:540px">
+  <div style="background:var(--card-bg);border:1.5px solid #EF4444;border-radius:var(--radius-lg);padding:2rem;text-align:center">
+    <div style="font-size:3rem;margin-bottom:1rem">⚠️</div>
+    <h1 style="font-size:1.5rem;font-weight:800;color:#EF4444;margin-bottom:.75rem">Delete Your Account</h1>
+    <p style="color:var(--text-light);line-height:1.7;margin-bottom:1.5rem">
+      This action is <strong>permanent and irreversible</strong>. All your personal data (profile, order history, wishlist, reviews) will be anonymised and your account will be deactivated immediately.
+    </p>
+    <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius-sm);padding:1rem;margin-bottom:1.5rem;text-align:left;font-size:.875rem;color:var(--text-light)">
+      <strong style="color:#EF4444">What will be deleted:</strong>
+      <ul style="margin:.5rem 0 0;padding-left:1.25rem;line-height:1.8">
+        <li>Your profile information</li>
+        <li>Saved addresses</li>
+        <li>Wishlist items</li>
+        <li>Loyalty points</li>
+        <li>AI conversation history</li>
+      </ul>
+      <strong style="color:var(--text)">What is retained (anonymised):</strong>
+      <ul style="margin:.5rem 0 0;padding-left:1.25rem;line-height:1.8">
+        <li>Order records (for legal compliance)</li>
+        <li>Reviews (anonymised)</li>
+      </ul>
+    </div>
+    <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap">
+      <a href="{% url 'shop:profile' %}" class="btn btn-ghost">← Cancel</a>
+      <form method="post" onsubmit="return confirm('Are you absolutely sure? This cannot be undone.')">
+        {% csrf_token %}
+        <button type="submit" class="btn" style="background:#EF4444;color:#fff;font-weight:700">Yes, Delete My Account</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

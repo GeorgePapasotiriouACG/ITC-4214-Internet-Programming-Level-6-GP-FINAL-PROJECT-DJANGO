@@ -451,36 +451,69 @@ function initRatingForm() {
 }
 
 // ── AI Chat ─────────────────────────────────────────────────
+// Enhanced AI chat widget:
+//  • DB-backed conversation history (auth users) with export + clear
+//  • Voice input via Web Speech API (Chrome/Edge native)
+//  • Image upload → base64 → backend vision search
+//  • Rich product cards rendered from response metadata
+//  • Typing animation (character-by-character reveal)
+//  • Proactive contextual bubbles triggered by page context + idle time
+//  • Sentiment detection → frustrated flag sent to backend
+//  • Dynamic quick-action buttons that adapt to conversation context
+// Author: George Papasotiriou — TrendMart 2026
 function initAIChat() {
-  const trigger = document.getElementById('ai-chat-trigger');
-  const panel = document.getElementById('ai-chat-panel');
-  const closeBtn = document.getElementById('ai-chat-close');
-  const clearBtn = document.getElementById('ai-clear-chat');
-  const input = document.getElementById('ai-input');
-  const sendBtn = document.getElementById('ai-send');
-  const messages = document.getElementById('ai-messages');
-  const charCount = document.getElementById('ai-char-count');
-  const statusLine = document.getElementById('ai-status-line');
+  const trigger      = document.getElementById('ai-chat-trigger');
+  const panel        = document.getElementById('ai-chat-panel');
+  const closeBtn     = document.getElementById('ai-chat-close');
+  const clearBtn     = document.getElementById('ai-clear-chat');
+  const exportBtn    = document.getElementById('ai-export-chat');
+  const input        = document.getElementById('ai-input');
+  const sendBtn      = document.getElementById('ai-send');
+  const messages     = document.getElementById('ai-messages');
+  const charCount    = document.getElementById('ai-char-count');
+  const statusLine   = document.getElementById('ai-status-line');
+  const micBtn       = document.getElementById('ai-mic-btn');
+  const imgBtn       = document.getElementById('ai-img-btn');
+  const imgFileInput = document.getElementById('ai-img-input');
+  const imgPreview   = document.getElementById('ai-img-preview');
+  const imgThumb     = document.getElementById('ai-img-thumb');
+  const imgNameEl    = document.getElementById('ai-img-name');
+  const imgRemove    = document.getElementById('ai-img-remove');
+  const proactiveBubble  = document.getElementById('ai-proactive-bubble');
+  const proactiveText    = document.getElementById('ai-proactive-text');
+  const proactiveClose   = document.getElementById('ai-proactive-close');
+  const proactiveOpen    = document.getElementById('ai-proactive-open');
+
   if (!trigger || !panel) return;
 
   let isOpen = false;
+  let pendingImage = null;  // { dataUrl: string, name: string } when user picks an image
 
-  // Update the status dot in the AI header (online / thinking / error)
+  // ── Frustration words — mirrored from backend for frontend detection ──────
+  const FRUSTRATION_WORDS = [
+    'terrible','broken','wrong','fraud','scam','disappointed','useless',
+    'awful','horrible','furious','angry','refund','cancel','never again',
+    'worst','hate','ridiculous','unacceptable','disgusting',
+  ];
+
+  // ── Status indicator in the chat header ───────────────────────────────────
   function setStatus(state) {
     if (!statusLine) return;
-    const states = {
+    const map = {
       online:   '● Online &mdash; ready to help',
-      thinking: '● Thinking…',
+      thinking: '⏳ Thinking…',
       error:    '● Connection issue — retrying',
     };
-    statusLine.innerHTML = states[state] || states.online;
+    statusLine.innerHTML = map[state] || map.online;
     statusLine.style.color = state === 'error' ? '#EF4444' : state === 'thinking' ? '#F59E0B' : '';
   }
 
+  // ── Open / close panel ────────────────────────────────────────────────────
   function openPanel() {
     isOpen = true;
     panel.classList.add('open');
     trigger.setAttribute('aria-expanded', 'true');
+    hideProcativeBubble();
     setTimeout(() => input?.focus(), 220);
   }
   function closePanel() {
@@ -493,26 +526,45 @@ function initAIChat() {
   closeBtn?.addEventListener('click', closePanel);
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && isOpen) closePanel(); });
 
-  // Clear chat — wipes all messages from the UI and resets session memory on the server
+  // ── Clear conversation ────────────────────────────────────────────────────
   clearBtn?.addEventListener('click', () => {
     if (!messages) return;
-    // Clear the message area, keeping only the welcome message
-    messages.innerHTML = '<div class="ai-msg bot"><div class="ai-bubble">Chat cleared! ✨ I\'m ready to help — what can I find for you?</div></div>';
-    // Tell the backend to reset the session conversation history
+    messages.innerHTML = '<div class="ai-msg bot"><div class="ai-bubble">Chat cleared! ✨ Fresh start — what can I find for you today?</div></div>';
     fetchPost('/ai/chat/', { action: 'clear_history' }).catch(() => {});
     if (input) { input.value = ''; input.focus(); }
-    if (charCount) charCount.textContent = '0/300';
+    if (charCount) charCount.textContent = '0/500';
+    clearPendingImage();
   });
 
+  // ── Export conversation as .txt ────────────────────────────────────────────
+  exportBtn?.addEventListener('click', () => {
+    fetchPost('/ai/chat/', { action: 'export' })
+      .then(r => r.json())
+      .then(data => {
+        const text = data.text || 'No conversation to export.';
+        const blob = new Blob([text], { type: 'text/plain' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url; a.download = 'trendmart-ai-chat.txt';
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a); URL.revokeObjectURL(url);
+      })
+      .catch(() => {});
+  });
+
+  // ── Character counter ─────────────────────────────────────────────────────
+  const MAX_CHARS = 500;
   if (input && charCount) {
     input.addEventListener('input', () => {
       const len = input.value.length;
-      const max = 300;
-      charCount.textContent = `${len}/${max}`;
-      charCount.className = 'ai-char-count' + (len > 250 ? ' near-limit' : '') + (len >= max ? ' at-limit' : '');
+      charCount.textContent = `${len}/${MAX_CHARS}`;
+      charCount.className = 'ai-char-count'
+        + (len > MAX_CHARS * 0.85 ? ' near-limit' : '')
+        + (len >= MAX_CHARS ? ' at-limit' : '');
     });
   }
 
+  // ── Append message bubble ─────────────────────────────────────────────────
   function appendMsg(html, type) {
     const msg = document.createElement('div');
     msg.className = `ai-msg ${type}`;
@@ -522,15 +574,96 @@ function initAIChat() {
     return msg;
   }
 
+  // ── Typing animation: reveal characters one-by-one (ChatGPT style) ───────
+  function appendMsgTyped(fullText, type) {
+    const msg = document.createElement('div');
+    msg.className = `ai-msg ${type}`;
+    const bubble = document.createElement('div');
+    bubble.className = 'ai-bubble';
+    msg.appendChild(bubble);
+    messages.appendChild(msg);
+    let i = 0;
+    // Build the final formatted HTML first, then 'type' it as plaintext
+    // to avoid injecting partial HTML tags. We reveal char-by-char on a
+    // plaintext copy then swap to formatted HTML once complete.
+    const chars = Array.from(fullText);  // handle Unicode safely
+    function typeNext() {
+      if (i < chars.length) {
+        bubble.textContent += chars[i++];
+        messages.scrollTop = messages.scrollHeight;
+        setTimeout(typeNext, 11);
+      } else {
+        // Animation complete — now apply full Markdown formatting
+        bubble.innerHTML = formatBotText(fullText);
+        messages.scrollTop = messages.scrollHeight;
+      }
+    }
+    typeNext();
+    return msg;
+  }
+
+  // ── Markdown-like text formatter ──────────────────────────────────────────
   function formatBotText(text) {
     return text
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/~~(.*?)~~/g, '<s>$1</s>')
+      .replace(/`([^`]+)`/g, '<code style="background:rgba(124,58,237,.1);padding:.1em .3em;border-radius:4px;font-size:.875em">$1</code>')
+      .replace(/• /g, '&bull; ')
+      // Convert product references 🔗[Name — $price](/products/slug/) to links
+      .replace(/🔗\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:var(--primary);text-decoration:underline;font-weight:600">🔗 $1</a>')
+      // Regular markdown links
       .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:var(--primary);text-decoration:underline;font-weight:600">$1</a>')
-      .replace(/🔗<a href="([^"]+)"[^>]*>([^<]+)<\/a>/g, '<a href="$1" class="ai-product-card"><span class="ai-product-card-name">$2</span></a>')
       .replace(/\n/g, '<br>');
   }
 
+  // ── Rich product cards from AI metadata ───────────────────────────────────
+  // When the backend returns `products` array, render mini product cards
+  // below the AI bubble so users can browse directly in the chat.
+  function appendRichCards(msgEl, products) {
+    if (!products || !products.length) return;
+    const container = document.createElement('div');
+    container.className = 'ai-product-cards';
+    products.forEach(p => {
+      const stars = '★'.repeat(Math.round(p.rating || 0)) + '☆'.repeat(5 - Math.round(p.rating || 0));
+      const originalPriceHtml = p.original_price
+        ? `<span class="original">$${p.original_price}</span>` : '';
+      const card = document.createElement('a');
+      card.href = p.url;
+      card.className = 'ai-rich-card';
+      card.setAttribute('aria-label', `View ${p.name} — $${p.price}`);
+      card.innerHTML = `
+        <img src="${p.image}" alt="${p.name}" class="ai-rich-card-img" loading="lazy">
+        <div class="ai-rich-card-body">
+          <div class="ai-rich-card-name">${p.name}</div>
+          <div class="ai-rich-card-meta">${p.category}${p.brand ? ' · ' + p.brand : ''}</div>
+          <div class="ai-rich-card-stars" aria-label="${p.rating} stars">${stars}</div>
+          <div class="ai-rich-card-price">${originalPriceHtml}$${p.price}</div>
+        </div>
+        <button class="ai-rich-card-cart" aria-label="Add ${p.name} to cart" data-slug="${p.slug}" type="button" title="Add to cart">🛒</button>
+      `;
+      // Add-to-cart from rich card via AJAX
+      card.querySelector('.ai-rich-card-cart').addEventListener('click', ev => {
+        ev.preventDefault();
+        const slug = ev.currentTarget.dataset.slug;
+        fetchPost('/cart/add/', { product_slug: slug, quantity: 1 })
+          .then(r => r.json())
+          .then(d => {
+            if (d.success) {
+              Toast.show('Added to cart! 🛒', 'success');
+              document.querySelectorAll('.cart-count').forEach(el => { el.textContent = d.cart_count; });
+            }
+          })
+          .catch(() => Toast.show('Could not add to cart.', 'error'));
+      });
+      container.appendChild(card);
+    });
+    // Append cards inside the bot bubble
+    const bubble = msgEl.querySelector('.ai-bubble');
+    if (bubble) bubble.appendChild(container);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  // ── Typing indicator (animated dots) ─────────────────────────────────────
   function showTyping() {
     const t = document.createElement('div');
     t.className = 'ai-msg bot'; t.id = 'ai-typing-indicator';
@@ -539,13 +672,15 @@ function initAIChat() {
     return t;
   }
 
+  // ── Dynamic quick-action buttons ──────────────────────────────────────────
   function updateQuickBtns(context) {
     const quickBtns = document.getElementById('ai-quick-btns');
     if (!quickBtns) return;
     const contextBtns = {
-      product: ['➕ Add to cart', '⭐ Reviews', '📦 Stock', '💰 Best price'],
-      order: ['📍 Track order', '↩️ Return item', '🧾 Invoice', '📞 Support'],
-      default: ['🔥 Hot deals', '📦 My orders', '💡 Recommend me', '↩️ Return policy', '🔍 Search products', '🏷️ Best price'],
+      product: ['➕ Add to cart', '⭐ Reviews', '📦 In stock?', '💰 Best price', '🔁 Compare'],
+      order:   ['📍 Track order', '↩️ Return item', '🧾 Invoice', '📞 Support'],
+      size:    ['📏 My measurements', '👟 Shoe size guide', '👕 Clothing guide'],
+      default: ['🔥 Hot deals', '📦 My orders', '💡 Recommend me', '📏 Find my size', '↩️ Returns', '🏷️ Best price'],
     };
     const btns = contextBtns[context] || contextBtns.default;
     quickBtns.innerHTML = btns.map(b => `<button class="ai-quick-btn">${b}</button>`).join('');
@@ -554,39 +689,179 @@ function initAIChat() {
     });
   }
 
+  // ── Sentiment detection (local) — mirrors backend _FRUSTRATION_WORDS ──────
+  function detectFrustration(text) {
+    const lower = text.toLowerCase();
+    return FRUSTRATION_WORDS.some(w => lower.includes(w));
+  }
+
+  // ── Image handling ────────────────────────────────────────────────────────
+  function clearPendingImage() {
+    pendingImage = null;
+    if (imgPreview) imgPreview.style.display = 'none';
+    if (imgThumb) imgThumb.src = '';
+    if (imgNameEl) imgNameEl.textContent = '';
+    if (imgFileInput) imgFileInput.value = '';
+  }
+
+  imgBtn?.addEventListener('click', () => imgFileInput?.click());
+  imgRemove?.addEventListener('click', clearPendingImage);
+
+  imgFileInput?.addEventListener('change', () => {
+    const file = imgFileInput.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { Toast.show('Image too large (max 5 MB).', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = ev => {
+      pendingImage = { dataUrl: ev.target.result, name: file.name };
+      if (imgThumb) imgThumb.src = ev.target.result;
+      if (imgNameEl) imgNameEl.textContent = file.name;
+      if (imgPreview) imgPreview.style.display = 'flex';
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // ── Voice input via Web Speech API ───────────────────────────────────────
+  let recognition = null;
+  if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = ev => {
+      const transcript = ev.results[0][0].transcript;
+      if (input) {
+        input.value = transcript;
+        // Trigger char count update
+        input.dispatchEvent(new Event('input'));
+      }
+      micBtn?.classList.remove('recording');
+      micBtn?.setAttribute('aria-label', 'Start voice input');
+    };
+    recognition.onerror  = () => { micBtn?.classList.remove('recording'); };
+    recognition.onend    = () => { micBtn?.classList.remove('recording'); };
+
+    micBtn?.addEventListener('click', () => {
+      if (micBtn.classList.contains('recording')) {
+        recognition.stop();
+        micBtn.classList.remove('recording');
+        micBtn.setAttribute('aria-label', 'Start voice input');
+      } else {
+        recognition.start();
+        micBtn.classList.add('recording');
+        micBtn.setAttribute('aria-label', 'Stop recording');
+      }
+    });
+  } else {
+    // Browser does not support Web Speech API — hide mic button
+    if (micBtn) micBtn.style.display = 'none';
+  }
+
+  // ── Core send function ────────────────────────────────────────────────────
   function sendMessage(text) {
-    if (!text.trim()) return;
-    appendMsg(text.replace(/</g, '&lt;'), 'user');
-    if (input) { input.value = ''; if (charCount) charCount.textContent = '0/300'; }
+    const msgText = (text || input?.value || '').trim();
+    if (!msgText && !pendingImage) return;
+
+    // Show user message in UI
+    const displayText = msgText
+      ? msgText.replace(/</g, '&lt;')
+      : '📷 <em>Image uploaded for visual search</em>';
+    if (pendingImage) {
+      // Show image preview bubble
+      const imgMsg = document.createElement('div');
+      imgMsg.className = 'ai-msg user';
+      imgMsg.innerHTML = `<div class="ai-bubble"><img src="${pendingImage.dataUrl}" alt="Uploaded image" style="max-width:140px;border-radius:8px;display:block;margin-bottom:.35rem">${msgText ? '<br>' + msgText.replace(/</g, '&lt;') : ''}</div>`;
+      messages.appendChild(imgMsg);
+    } else {
+      appendMsg(displayText, 'user');
+    }
+
+    if (input) { input.value = ''; if (charCount) charCount.textContent = `0/${MAX_CHARS}`; }
     sendBtn?.classList.add('sending');
     setTimeout(() => sendBtn?.classList.remove('sending'), 400);
-    setStatus('thinking');  // Show "Thinking…" in header while waiting for AI
+    setStatus('thinking');
+
+    // Build request payload
+    const payload = { message: msgText };
+    if (pendingImage) payload.image_data = pendingImage.dataUrl;
+    if (detectFrustration(msgText)) payload.is_frustrated = true;
+
+    const imageForCard = pendingImage ? pendingImage.dataUrl : null;  // hold ref before clearing
+    clearPendingImage();
 
     const typing = showTyping();
-    fetchPost('/ai/chat/', { message: text })
+    fetchPost('/ai/chat/', payload)
       .then(r => r.json())
       .then(data => {
         typing.remove();
-        setStatus('online');  // Back to "Online" once reply arrives
-        appendMsg(formatBotText(data.reply || "Sorry, I couldn't process that."), 'bot');
-        if (text.match(/order|track|delivery/i)) updateQuickBtns('order');
-        else if (text.match(/product|show|find|search/i)) updateQuickBtns('product');
+        setStatus('online');
+        // Typing animation for bot reply
+        const replyText = data.reply || "Sorry, I couldn't process that.";
+        const botMsg = appendMsgTyped(replyText, 'bot');
+        // Wait for typing animation then append rich cards
+        const cardDelay = Math.min(replyText.length * 12 + 300, 3500);
+        setTimeout(() => appendRichCards(botMsg, data.products), cardDelay);
+        // Update quick-action context
+        const lowerMsg = msgText.toLowerCase();
+        if (lowerMsg.match(/order|track|delivery|ship/)) updateQuickBtns('order');
+        else if (lowerMsg.match(/size|measurements|fit|eu|uk size/)) updateQuickBtns('size');
+        else if (lowerMsg.match(/product|show|find|search|recommend/)) updateQuickBtns('product');
         else updateQuickBtns('default');
       })
       .catch(() => {
         typing.remove();
         setStatus('error');
-        setTimeout(() => setStatus('online'), 4000);  // Recover status after 4s
-        appendMsg("Sorry, I'm having trouble connecting. Please try again!", 'bot');
+        setTimeout(() => setStatus('online'), 4000);
+        appendMsg("Sorry, I'm having trouble connecting. Please try again! 🔄", 'bot');
       });
   }
 
   sendBtn?.addEventListener('click', () => sendMessage(input?.value || ''));
-  input?.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input.value); } });
+  input?.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input.value); }
+  });
 
+  // Wire up initial quick buttons
   document.querySelectorAll('.ai-quick-btn').forEach(btn => {
     btn.addEventListener('click', () => sendMessage(btn.textContent.trim()));
   });
+
+  // ── Proactive contextual bubble ───────────────────────────────────────────
+  // Shows a context-aware prompt to nudge users to interact with the AI.
+  // Fires once per page, only if the chat panel is closed.
+  let proactiveFired = false;
+  function showProactiveBubble(msg, delayMs) {
+    if (proactiveFired || isOpen) return;
+    setTimeout(() => {
+      if (isOpen || proactiveFired) return;
+      proactiveFired = true;
+      if (proactiveText) proactiveText.textContent = msg;
+      if (proactiveBubble) proactiveBubble.style.display = 'block';
+    }, delayMs);
+  }
+  function hideProcativeBubble() {
+    if (proactiveBubble) proactiveBubble.style.display = 'none';
+  }
+  proactiveClose?.addEventListener('click', hideProcativeBubble);
+  proactiveOpen?.addEventListener('click', () => { hideProcativeBubble(); openPanel(); });
+
+  // Detect page context and fire the right proactive message
+  const path = window.location.pathname;
+  if (path.includes('/cart/')) {
+    // On cart page after 30s — suggest accessories
+    showProactiveBubble('💬 Need help finding accessories for items in your cart?', 30000);
+  } else if (path.includes('/search/')) {
+    // On search page after 10s — offer AI search help
+    showProactiveBubble('🧠 Try our AI search — describe what you need in plain English!', 10000);
+  } else if (path.includes('/products/')) {
+    // On a product page after 60s idle — suggest comparison
+    showProactiveBubble('❓ Questions about this product? I can compare it with similar items.', 60000);
+  } else if (path === '/' || path === '') {
+    // Homepage — general welcome after 20s
+    showProactiveBubble('👋 Hi! I\'m TrendMart AI — I can help you find amazing deals. What are you looking for today?', 20000);
+  }
 }
 
 // ── Filter Sidebar Collapse ─────────────────────────────────
@@ -862,6 +1137,541 @@ const RecentlyViewed = {
   }
 };
 
+// =============================================================================
+// ── NEW FEATURE JS (112-Point Enhancement) ─────────────────────────────────
+// Author: George Papasotiriou — TrendMart, March 2026
+// =============================================================================
+
+// ── Mini Cart Slide-In Drawer ────────────────────────────────────────────────
+// Opens from the right when user clicks the cart icon or adds a product.
+// Uses display:none/flex controlled by JS so the drawer is fully hidden until
+// needed — this is bulletproof even when position:fixed is affected by parent
+// CSS transforms (which can happen near canvas/animation elements).
+function initMiniCart() {
+  const overlay  = document.getElementById('mini-cart-overlay');
+  const drawer   = document.getElementById('mini-cart-drawer');
+  const closeBtn = document.getElementById('mini-cart-close');
+  const cartIcon = document.getElementById('nav-cart-btn'); // cart icon in navbar
+  if (!drawer) return;
+
+  let isOpen = false;
+
+  function openDrawer() {
+    if (isOpen) return;
+    isOpen = true;
+
+    // Step 1: make elements visible in the DOM (but still off-screen via transform)
+    drawer.style.display = 'flex';
+    if (overlay) overlay.style.display = 'block';
+
+    // Step 2: fetch fresh cart data
+    fetch('/cart/mini/')
+      .then(r => r.json())
+      .then(data => {
+        renderMiniCart(data);
+        // Step 3: double-rAF ensures the browser has painted with display:flex
+        // before we add .open, so the CSS transition fires correctly
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            overlay?.classList.add('open');
+            drawer.classList.add('open');
+            drawer.setAttribute('aria-hidden', 'false');
+            closeBtn?.focus();
+          });
+        });
+      })
+      .catch(() => {
+        isOpen = false;
+        drawer.style.display = 'none';
+        if (overlay) overlay.style.display = 'none';
+      });
+  }
+
+  function closeDrawer() {
+    if (!isOpen) return;
+    isOpen = false;
+
+    // Remove .open — CSS transition slides drawer back to the right
+    overlay?.classList.remove('open');
+    drawer.classList.remove('open');
+    drawer.setAttribute('aria-hidden', 'true');
+
+    // After transition completes, hide with display:none so it's fully out of layout
+    setTimeout(() => {
+      drawer.style.display = 'none';
+      if (overlay) overlay.style.display = 'none';
+    }, 350); // slightly longer than the 320ms CSS transition
+  }
+
+  function renderMiniCart(data) {
+    const itemsEl = document.getElementById('mini-cart-items');
+    const totalEl = document.getElementById('mini-cart-total-val');
+    const countEl = document.getElementById('mini-cart-count');
+    if (!itemsEl) return;
+
+    if (!data.items || data.items.length === 0) {
+      itemsEl.innerHTML = `
+        <div style="text-align:center;padding:3rem 1rem">
+          <div style="font-size:3rem;margin-bottom:.75rem">🛒</div>
+          <p style="color:var(--text-light);font-size:.9375rem">Your cart is empty</p>
+          <a href="/products/" class="btn btn-primary" style="margin-top:1rem;display:inline-block">Browse Products</a>
+        </div>`;
+    } else {
+      itemsEl.innerHTML = data.items.map(item => `
+        <div class="mini-cart-item">
+          <img src="${item.image}" alt="${item.name}" class="mini-cart-img" loading="lazy">
+          <div class="mini-cart-item-body">
+            <div class="mini-cart-name">${item.name}</div>
+            ${item.size ? `<div class="mini-cart-meta">Size: ${item.size}</div>` : ''}
+            <div class="mini-cart-meta">Qty: ${item.quantity}</div>
+            <div class="mini-cart-price">$${parseFloat(item.subtotal).toFixed(2)}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    if (totalEl) totalEl.textContent = `$${parseFloat(data.total || 0).toFixed(2)}`;
+    if (countEl) countEl.textContent = data.count;
+  }
+
+  // Close on overlay click, close button, or Escape key
+  overlay?.addEventListener('click', closeDrawer);
+  closeBtn?.addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && isOpen) closeDrawer(); });
+
+  // Cart navbar icon: intercept click to open drawer instead of navigating
+  cartIcon?.addEventListener('click', e => {
+    e.preventDefault(); // stop navigation to /cart/ page
+    openDrawer();
+  });
+
+  // Also open after every successful add-to-cart AJAX
+  document.addEventListener('cart:added', openDrawer);
+}
+
+// ── Instant Search Overlay (live-as-you-type) ────────────────────────────────
+// Fetches product suggestions as user types; supports keyboard navigation.
+function initInstantSearch() {
+  const searchForms = document.querySelectorAll('.nav-search-form, .search-form-wrap');
+  searchForms.forEach(form => {
+    if (!form) return;
+    const input = form.querySelector('input[name="q"]');
+    if (!input) return;
+
+    // Build the dropdown DOM
+    const dropdown = document.createElement('div');
+    dropdown.className = 'search-dropdown';
+    dropdown.setAttribute('role', 'listbox');
+    dropdown.setAttribute('aria-label', 'Search suggestions');
+    form.style.position = 'relative';
+    form.appendChild(dropdown);
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'search-overlay-backdrop';
+    document.body.appendChild(backdrop);
+
+    // Search history from localStorage
+    const HISTORY_KEY = 'tm_search_history';
+    function getHistory() {
+      try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
+    }
+    function addToHistory(q) {
+      if (!q) return;
+      const h = getHistory().filter(x => x !== q).slice(0, 4);
+      h.unshift(q);
+      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); } catch {}
+    }
+
+    function showDropdown() {
+      dropdown.classList.add('active');
+      backdrop.classList.add('active');
+    }
+    function hideDropdown() {
+      dropdown.classList.remove('active');
+      backdrop.classList.remove('active');
+    }
+
+    let debounceTimer;
+    let highlighted = -1;
+
+    function renderHistory() {
+      const h = getHistory();
+      if (!h.length) { hideDropdown(); return; }
+      dropdown.innerHTML = `
+        <div class="search-dropdown-section">
+          <div class="search-dropdown-label">Recent Searches</div>
+          <div style="padding:.375rem .875rem">
+            ${h.map(term => `<button class="search-history-chip" type="button" aria-label="Search for ${term}">🕐 ${term}</button>`).join('')}
+          </div>
+        </div>`;
+      dropdown.querySelectorAll('.search-history-chip').forEach(btn => {
+        btn.addEventListener('click', () => { input.value = btn.textContent.replace('🕐 ', '').trim(); form.submit(); });
+      });
+      showDropdown();
+    }
+
+    function renderResults(results) {
+      if (!results.length) { hideDropdown(); return; }
+      dropdown.innerHTML = `
+        <div class="search-dropdown-section">
+          <div class="search-dropdown-label">Products</div>
+          ${results.map((p, i) => `
+            <a href="/products/${p.slug}/" class="search-dropdown-item" role="option" aria-selected="false" data-idx="${i}">
+              <img src="${p.image}" alt="${p.name}" class="search-dropdown-item-img" loading="lazy">
+              <div>
+                <div class="search-dropdown-item-name">${p.name}</div>
+                <div class="search-dropdown-item-meta">${p.category}${p.brand ? ' · ' + p.brand : ''}</div>
+              </div>
+              <span class="search-dropdown-item-price">$${p.price}</span>
+            </a>`).join('')}
+        </div>`;
+      highlighted = -1;
+      showDropdown();
+    }
+
+    input.addEventListener('focus', () => {
+      if (!input.value.trim()) renderHistory();
+    });
+
+    input.addEventListener('input', () => {
+      const q = input.value.trim();
+      clearTimeout(debounceTimer);
+      if (!q) { renderHistory(); return; }
+      debounceTimer = setTimeout(() => {
+        fetch(`/search/autocomplete/?q=${encodeURIComponent(q)}`)
+          .then(r => r.json())
+          .then(data => renderResults(data.results || []))
+          .catch(() => hideDropdown());
+      }, 220);  // 220ms debounce — responsive but not spammy
+    });
+
+    // Keyboard navigation (↑ ↓ Enter Escape)
+    input.addEventListener('keydown', e => {
+      const items = [...dropdown.querySelectorAll('.search-dropdown-item')];
+      if (e.key === 'ArrowDown') {
+        e.preventDefault(); highlighted = Math.min(highlighted + 1, items.length - 1);
+        items.forEach((el, i) => el.classList.toggle('highlighted', i === highlighted));
+        items[highlighted]?.focus();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault(); highlighted = Math.max(highlighted - 1, -1);
+        items.forEach((el, i) => el.classList.toggle('highlighted', i === highlighted));
+        if (highlighted === -1) input.focus();
+        else items[highlighted]?.focus();
+      } else if (e.key === 'Escape') {
+        hideDropdown(); input.blur();
+      }
+    });
+
+    backdrop.addEventListener('click', hideDropdown);
+
+    form.addEventListener('submit', () => {
+      addToHistory(input.value.trim());
+      hideDropdown();
+    });
+  });
+}
+
+// ── Product Image Zoom (Amazon-style magnifier) ────────────────────────────
+// Hover over the main product image to see a magnified panel beside it.
+function initImageZoom() {
+  const imgWrap = document.getElementById('product-zoom-wrap');
+  if (!imgWrap) return;
+  const img = imgWrap.querySelector('img');
+  if (!img) return;
+
+  // Create zoom lens and result panel
+  const lens = document.createElement('div');
+  lens.className = 'zoom-lens';
+  lens.setAttribute('aria-hidden', 'true');
+  imgWrap.appendChild(lens);
+
+  const resultPanel = document.createElement('div');
+  resultPanel.className = 'zoom-result-panel';
+  const resultImg = document.createElement('img');
+  resultImg.src = img.src;
+  resultImg.alt = '';
+  resultPanel.appendChild(resultImg);
+  imgWrap.parentElement.style.position = 'relative';
+  imgWrap.parentElement.appendChild(resultPanel);
+
+  const ZOOM = 2.5;  // Magnification factor
+  const LENS_SIZE = 120;  // Lens square size in px
+
+  lens.style.cssText += `width:${LENS_SIZE}px;height:${LENS_SIZE}px`;
+
+  function moveLens(e) {
+    const rect = imgWrap.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const lx = Math.max(0, Math.min(x - LENS_SIZE / 2, rect.width - LENS_SIZE));
+    const ly = Math.max(0, Math.min(y - LENS_SIZE / 2, rect.height - LENS_SIZE));
+    lens.style.left = lx + 'px';
+    lens.style.top  = ly + 'py';
+    lens.style.top  = ly + 'px';
+
+    // Position the zoomed image inside the result panel
+    const scaleX = resultPanel.offsetWidth / (LENS_SIZE / ZOOM);
+    const scaleY = resultPanel.offsetHeight / (LENS_SIZE / ZOOM);
+    resultImg.style.width  = img.naturalWidth  * (ZOOM * resultPanel.offsetWidth / img.offsetWidth) + 'px';
+    resultImg.style.height = img.naturalHeight * (ZOOM * resultPanel.offsetHeight / img.offsetHeight) + 'px';
+    resultImg.style.left = -(lx * ZOOM * resultPanel.offsetWidth / img.offsetWidth) + 'px';
+    resultImg.style.top  = -(ly * ZOOM * resultPanel.offsetHeight / img.offsetHeight) + 'px';
+  }
+
+  imgWrap.addEventListener('mouseenter', () => {
+    lens.classList.add('visible');
+    resultPanel.style.display = 'block';
+  });
+  imgWrap.addEventListener('mouseleave', () => {
+    lens.classList.remove('visible');
+    resultPanel.style.display = 'none';
+  });
+  imgWrap.addEventListener('mousemove', moveLens);
+}
+
+// ── Sticky Add-to-Cart Bar ───────────────────────────────────────────────────
+// Appears when the main CTA scrolls out of view on product detail pages.
+function initStickyCartBar() {
+  const mainCta = document.getElementById('main-atc-btn');  // main add-to-cart button
+  const stickyBar = document.getElementById('sticky-cart-bar');
+  if (!mainCta || !stickyBar) return;
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      stickyBar.classList.toggle('visible', !entry.isIntersecting);
+    });
+  }, { threshold: 0, rootMargin: '0px 0px -60px 0px' });
+  observer.observe(mainCta);
+}
+
+// ── Password Strength Meter ──────────────────────────────────────────────────
+// Shows a coloured progress bar and label as the user types their password.
+function initPasswordStrength() {
+  const pwdInputs = document.querySelectorAll('input[type="password"][data-strength]');
+  pwdInputs.forEach(input => {
+    const wrap = document.createElement('div');
+    wrap.className = 'pwd-strength-wrap';
+    wrap.innerHTML = '<div class="pwd-strength-bar"><div class="pwd-strength-fill" id="pwd-fill"></div></div><div class="pwd-strength-label" id="pwd-label" aria-live="polite"></div>';
+    input.insertAdjacentElement('afterend', wrap);
+    const fill  = wrap.querySelector('.pwd-strength-fill');
+    const label = wrap.querySelector('.pwd-strength-label');
+
+    input.addEventListener('input', () => {
+      const v = input.value;
+      let score = 0;
+      if (v.length >= 8) score++;
+      if (/[A-Z]/.test(v)) score++;
+      if (/[0-9]/.test(v)) score++;
+      if (/[^A-Za-z0-9]/.test(v)) score++;
+      const levels = [
+        { w: '0%', bg: 'transparent', text: '' },
+        { w: '25%', bg: '#EF4444', text: 'Weak' },
+        { w: '50%', bg: '#F59E0B', text: 'Fair' },
+        { w: '75%', bg: '#3B82F6', text: 'Good' },
+        { w: '100%', bg: '#10B981', text: 'Strong' },
+      ];
+      const level = levels[score] || levels[0];
+      fill.style.width      = level.w;
+      fill.style.background = level.bg;
+      label.textContent     = level.text;
+      label.style.color     = level.bg;
+    });
+  });
+}
+
+// ── GDPR Cookie Consent Banner ────────────────────────────────────────────────
+// Non-blocking bottom banner; stores consent in localStorage.
+function initCookieBanner() {
+  const banner = document.getElementById('cookie-banner');
+  if (!banner) return;
+  if (localStorage.getItem('tm_cookie_consent')) return;  // already consented
+
+  setTimeout(() => banner.classList.add('show'), 800);
+
+  document.getElementById('cookie-accept')?.addEventListener('click', () => {
+    localStorage.setItem('tm_cookie_consent', '1');
+    banner.classList.remove('show');
+    setTimeout(() => banner.remove(), 400);
+  });
+  document.getElementById('cookie-decline')?.addEventListener('click', () => {
+    localStorage.setItem('tm_cookie_consent', '0');
+    banner.classList.remove('show');
+    setTimeout(() => banner.remove(), 400);
+  });
+}
+
+// ── Notification Bell (AJAX unread count) ─────────────────────────────────
+// Polls the server for unread notifications count and updates the badge.
+function initNotificationBell() {
+  const badge = document.getElementById('notif-badge');
+  if (!badge) return;
+
+  function refreshCount() {
+    fetch('/notifications/count/')
+      .then(r => r.json())
+      .then(data => {
+        if (data.count > 0) {
+          badge.textContent = data.count > 99 ? '99+' : data.count;
+          badge.classList.add('visible');
+        } else {
+          badge.classList.remove('visible');
+        }
+      })
+      .catch(() => {});
+  }
+  refreshCount();
+  setInterval(refreshCount, 60000);  // refresh every 60 seconds
+}
+
+// ── Newsletter Subscription (AJAX) ───────────────────────────────────────────
+function initNewsletter() {
+  document.querySelectorAll('.newsletter-form').forEach(form => {
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const email = form.querySelector('input[name="email"]')?.value.trim();
+      const name  = form.querySelector('input[name="name"]')?.value.trim() || '';
+      if (!email) return;
+      fetchPost('/newsletter/subscribe/', { email, name })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) Toast.show(data.message, 'success');
+          else Toast.show(data.error || 'Error subscribing.', 'error');
+          form.reset();
+        })
+        .catch(() => Toast.show('Could not subscribe. Try again.', 'error'));
+    });
+  });
+}
+
+// ── Promo Code Application (AJAX) ────────────────────────────────────────────
+function initPromoCode() {
+  const form = document.getElementById('promo-form');
+  if (!form) return;
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const code = form.querySelector('input[name="promo_code"]')?.value.trim();
+    if (!code) return;
+    fetchPost('/cart/promo/', { code })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          Toast.show(data.message, 'success');
+          // Update cart total display
+          const totalEl = document.getElementById('cart-total-display');
+          if (totalEl) totalEl.textContent = `$${data.new_total.toFixed(2)}`;
+          const discountEl = document.getElementById('promo-discount-display');
+          if (discountEl) { discountEl.textContent = `-$${data.discount.toFixed(2)}`; discountEl.style.display = 'block'; }
+        } else {
+          Toast.show(data.error || 'Invalid code.', 'error');
+        }
+      })
+      .catch(() => Toast.show('Could not apply code.', 'error'));
+  });
+}
+
+// ── AJAX Cart Quantity Update ─────────────────────────────────────────────────
+// Updates item quantity without page reload using +/- buttons.
+function initAjaxCartQty() {
+  document.querySelectorAll('[data-cart-qty-form]').forEach(form => {
+    const qtyInput = form.querySelector('input[name="quantity"]');
+    const plusBtn  = form.querySelector('[data-qty-plus]');
+    const minusBtn = form.querySelector('[data-qty-minus]');
+
+    function updateQty(newQty) {
+      if (newQty < 1) return;
+      const itemId = form.dataset.itemId;
+      fetchPost(`/cart/update/${itemId}/`, { quantity: newQty })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            if (qtyInput) qtyInput.value = newQty;
+            // Update totals in the UI (view returns 'subtotal' key)
+            const subtotalEl = document.getElementById(`subtotal-${itemId}`);
+            const sub = parseFloat(data.item_subtotal ?? data.subtotal ?? 0);
+            if (subtotalEl) subtotalEl.textContent = `$${sub.toFixed(2)}`;
+            const totalEl = document.getElementById('cart-total-display');
+            if (totalEl) totalEl.textContent = `$${parseFloat(data.cart_total || 0).toFixed(2)}`;
+            document.querySelectorAll('.cart-count').forEach(el => { el.textContent = data.cart_count; });
+          }
+        })
+        .catch(() => {});
+    }
+
+    plusBtn?.addEventListener('click', () => updateQty(parseInt(qtyInput?.value || 1) + 1));
+    minusBtn?.addEventListener('click', () => updateQty(Math.max(1, parseInt(qtyInput?.value || 1) - 1)));
+  });
+}
+
+// ── Focus trap for modals ─────────────────────────────────────────────────────
+// Ensures Tab cycles only within an open modal (WCAG 2.1 AA).
+function trapFocus(element) {
+  const focusable = element.querySelectorAll(
+    'a[href],button:not([disabled]),textarea,input,select,[tabindex]:not([tabindex="-1"])'
+  );
+  const first = focusable[0];
+  const last  = focusable[focusable.length - 1];
+  element.addEventListener('keydown', e => {
+    if (e.key !== 'Tab') return;
+    if (e.shiftKey) {
+      if (document.activeElement === first) { e.preventDefault(); last?.focus(); }
+    } else {
+      if (document.activeElement === last) { e.preventDefault(); first?.focus(); }
+    }
+  });
+}
+
+// Apply focus trap to the auth modal when it opens
+function initFocusTrap() {
+  const modal = document.getElementById('auth-modal');
+  if (modal) {
+    const observer = new MutationObserver(() => {
+      if (modal.classList.contains('active')) {
+        trapFocus(modal);
+        // Set focus to first focusable element
+        modal.querySelector('input, button')?.focus();
+      }
+    });
+    observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
+  }
+}
+
+// ── Social Share buttons ────────────────────────────────────────────────────
+function initSocialShare() {
+  document.querySelectorAll('[data-share]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const url  = encodeURIComponent(window.location.href);
+      const text = encodeURIComponent(document.title);
+      const platform = btn.dataset.share;
+      const urls = {
+        whatsapp: `https://wa.me/?text=${text}%20${url}`,
+        twitter:  `https://twitter.com/intent/tweet?text=${text}&url=${url}`,
+        facebook: `https://www.facebook.com/sharer/sharer.php?u=${url}`,
+        copy:     null,
+      };
+      if (platform === 'copy') {
+        navigator.clipboard.writeText(window.location.href)
+          .then(() => Toast.show('Link copied! 🔗', 'success'))
+          .catch(() => {});
+      } else if (urls[platform]) {
+        window.open(urls[platform], '_blank', 'width=600,height=400,noopener,noreferrer');
+      }
+    });
+  });
+}
+
+// ── Dispatch cart:added event from add-to-cart responses ──────────────────
+// Patches the existing fetchPost-based cart AJAX to fire a custom event
+// that the mini cart drawer listens to.
+function patchCartForMiniCart() {
+  // Override the cart form submit handler to open the mini cart
+  document.querySelectorAll('[data-add-to-cart]').forEach(form => {
+    form.addEventListener('submit', () => {
+      setTimeout(() => document.dispatchEvent(new CustomEvent('cart:added')), 400);
+    });
+  });
+}
+
 // ── Init all ────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   initDarkMode();
@@ -871,6 +1681,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initMobileNav();
   initScrollToTop();
   initSearchAutocomplete();
+  initInstantSearch();
   initCart();
   initWishlist();
   initStarRating();
@@ -885,4 +1696,17 @@ document.addEventListener('DOMContentLoaded', () => {
   initCurrencySelector();
   initPWAInstall();
   RecentlyViewed.trackCurrentProduct();
+  // New feature initialisers
+  initMiniCart();
+  initImageZoom();
+  initStickyCartBar();
+  initPasswordStrength();
+  initCookieBanner();
+  initNotificationBell();
+  initNewsletter();
+  initPromoCode();
+  initAjaxCartQty();
+  initFocusTrap();
+  initSocialShare();
+  patchCartForMiniCart();
 });

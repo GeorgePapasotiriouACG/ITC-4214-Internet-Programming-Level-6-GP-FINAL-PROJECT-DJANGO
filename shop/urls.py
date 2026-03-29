@@ -50,6 +50,7 @@ urlpatterns = [
     path('review/<int:review_id>/helpful/', views.mark_review_helpful, name='mark_review_helpful'),
 
     path('ai/chat/', views.ai_assistant, name='ai_assistant'),
+    path('ai/search/', views.ai_search, name='ai_search'),
 
     path('admin-panel/', views.admin_dashboard, name='admin_dashboard'),
     path('admin-panel/products/', views.admin_products, name='admin_products'),
@@ -62,4 +63,43 @@ urlpatterns = [
     path('admin-panel/retailers/<int:user_id>/approve/', views.admin_approve_retailer, name='admin_approve_retailer'),
     path('admin-panel/orders/', views.admin_orders, name='admin_orders'),
     path('admin-panel/orders/<str:order_number>/status/', views.admin_order_status, name='admin_order_status'),
+    path('admin-panel/search-logs/', views.admin_search_logs, name='admin_search_logs'),
+    path('admin-panel/audit-log/', views.admin_audit_log, name='admin_audit_log'),
+    path('admin-panel/product-performance/', views.admin_product_performance, name='admin_product_performance'),
+
+    path('notifications/', views.notification_list, name='notification_list'),
+    path('notifications/count/', views.notifications_count, name='notifications_count'),
+
+    path('loyalty/', views.loyalty_dashboard, name='loyalty_dashboard'),
+    path('referral/', views.referral_dashboard, name='referral_dashboard'),
+
+    path('addresses/', views.address_list, name='address_list'),
+    path('addresses/<int:pk>/delete/', views.address_delete, name='address_delete'),
+
+    path('cart/promo/', views.apply_promo_code, name='apply_promo_code'),
+    path('cart/save-for-later/<int:item_id>/', views.save_for_later, name='save_for_later'),
+    path('cart/mini/', views.mini_cart_data, name='mini_cart_data'),
+
+    path('store/<str:username>/', views.retailer_storefront, name='retailer_storefront'),
+    path('dashboard/retailer/analytics/', views.retailer_analytics, name='retailer_analytics'),
+    path('dashboard/retailer/import/', views.retailer_csv_import, name='retailer_csv_import'),
+    path('dashboard/retailer/ai-description/', views.ai_generate_description, name='ai_generate_description'),
+
+    path('products/<slug:slug>/ask/', views.ask_question, name='ask_question'),
+    path('products/<slug:slug>/stock-notify/', views.notify_back_in_stock, name='notify_back_in_stock'),
+    path('questions/<int:question_id>/answer/', views.answer_question, name='answer_question'),
+    path('reviews/<int:review_id>/reply/', views.reply_to_review, name='reply_to_review'),
+
+    path('wishlist/share/', views.generate_wishlist_share, name='generate_wishlist_share'),
+    path('wishlist/shared/<str:token>/', views.shared_wishlist, name='shared_wishlist'),
+
+    path('newsletter/subscribe/', views.newsletter_subscribe, name='newsletter_subscribe'),
+
+    path('collections/', views.collections_list, name='collections'),
+    path('collections/<slug:slug>/', views.collection_detail, name='collection_detail'),
+
+    path('spin/', views.spin_wheel, name='spin_wheel'),
+    path('surprise/', views.surprise_me, name='surprise_me'),
+
+    path('account/delete/', views.delete_account, name='delete_account'),
 ]

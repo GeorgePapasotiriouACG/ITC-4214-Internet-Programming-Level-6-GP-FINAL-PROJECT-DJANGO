@@ -1,0 +1,72 @@
+{% extends 'shop/base.html' %}
+{# Author: George Papasotiriou | Date Created: March 28, 2026 | Project: TrendMart #}
+{% block title %}Loyalty Points — TrendMart{% endblock %}
+{% block content %}
+<div class="container" style="padding-top:1.5rem;padding-bottom:3rem;max-width:860px">
+  <h1 style="font-size:1.75rem;font-weight:800;color:var(--dark);margin-bottom:.5rem">🎁 Loyalty Rewards</h1>
+  <p style="color:var(--text-light);margin-bottom:2rem">Earn points on every purchase and redeem them for discounts.</p>
+
+  <!-- Points balance card -->
+  <div style="background:linear-gradient(135deg,#7C3AED,#EC4899);border-radius:var(--radius-lg);padding:2rem;color:#fff;margin-bottom:2rem;position:relative;overflow:hidden">
+    <div style="font-size:1rem;font-weight:600;opacity:.85;margin-bottom:.35rem">Your Balance</div>
+    <div style="font-size:3.5rem;font-weight:900;letter-spacing:-2px;margin-bottom:.25rem">{{ loyalty.points }}</div>
+    <div style="font-size:1.0625rem;opacity:.85">points</div>
+    <div style="position:absolute;right:2rem;top:50%;transform:translateY(-50%);font-size:5rem;opacity:.15" aria-hidden="true">💎</div>
+    <div style="margin-top:1rem;display:flex;gap:2rem;font-size:.875rem;opacity:.9">
+      <span>Lifetime earned: <strong>{{ loyalty.total_earned }}</strong></span>
+      <span>Lifetime redeemed: <strong>{{ loyalty.total_spent }}</strong></span>
+    </div>
+  </div>
+
+  <!-- Current tier -->
+  <div style="background:var(--card-bg);border:1.5px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:2rem">
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem;flex-wrap:wrap">
+      <div style="font-size:2.5rem">{{ current_tier.icon }}</div>
+      <div>
+        <div style="font-size:1.25rem;font-weight:800;color:var(--dark)">{{ current_tier.name }} Member</div>
+        <div style="color:var(--text-light);font-size:.9rem">{{ current_tier.benefit }}</div>
+      </div>
+      {% if next_tier %}
+      <div style="margin-left:auto;text-align:right">
+        <div style="font-size:.85rem;color:var(--text-light)">Next: {{ next_tier.icon }} {{ next_tier.name }}</div>
+        <div style="font-size:.85rem;color:var(--primary);font-weight:700">{{ next_tier.points|add:"-loyalty.points" }} pts needed</div>
+      </div>
+      {% endif %}
+    </div>
+    <!-- Tier progress bar -->
+    <div style="display:flex;gap:.75rem;align-items:center">
+      {% for tier in tiers %}
+      <div style="flex:1;text-align:center">
+        <div style="font-size:1.1rem">{{ tier.icon }}</div>
+        <div style="font-size:.7rem;color:var(--text-light);margin-top:.2rem">{{ tier.name }}</div>
+        <div style="height:4px;border-radius:2px;margin-top:.35rem;background:{% if loyalty.points >= tier.points %}var(--primary){% else %}var(--border){% endif %}"></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Transaction history -->
+  <h2 style="font-size:1.25rem;font-weight:700;color:var(--dark);margin-bottom:1rem">Transaction History</h2>
+  {% if transactions %}
+  <div style="background:var(--card-bg);border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden">
+    {% for tx in transactions %}
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:.875rem 1.25rem;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-weight:600;color:var(--dark);font-size:.9rem">{{ tx.description }}</div>
+        <div style="font-size:.78rem;color:var(--text-light)">{{ tx.created_at|date:"M d, Y" }}</div>
+      </div>
+      <div style="font-weight:800;font-size:1.05rem;color:{% if tx.transaction_type == 'earn' %}var(--success){% else %}#EF4444{% endif %}">
+        {% if tx.transaction_type == 'earn' %}+{% else %}-{% endif %}{{ tx.points }} pts
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+    <p style="color:var(--text-light);text-align:center;padding:2rem 0">No transactions yet. Start shopping to earn points!</p>
+  {% endif %}
+
+  <div style="margin-top:1.5rem;text-align:center">
+    <a href="{% url 'shop:product_list' %}" class="btn btn-primary">🛍️ Shop & Earn Points</a>
+  </div>
+</div>
+{% endblock %}

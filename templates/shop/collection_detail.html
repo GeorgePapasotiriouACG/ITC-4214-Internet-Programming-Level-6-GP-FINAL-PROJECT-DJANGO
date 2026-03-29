@@ -1,0 +1,43 @@
+{% extends 'shop/base.html' %}
+{# Author: George Papasotiriou | Date Created: March 28, 2026 | Project: TrendMart #}
+{% block title %}{{ collection.name }} — TrendMart{% endblock %}
+{% block content %}
+<div class="container" style="padding-top:1.5rem;padding-bottom:3rem">
+
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="{% url 'shop:home' %}">Home</a><span class="breadcrumb-sep" aria-hidden="true">/</span>
+    <a href="{% url 'shop:collections' %}">Collections</a><span class="breadcrumb-sep" aria-hidden="true">/</span>
+    <span class="breadcrumb-current">{{ collection.name }}</span>
+  </nav>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:2rem">
+    <div>
+      <h1 style="font-size:1.75rem;font-weight:900;color:var(--dark)">{{ collection.icon }} {{ collection.name }}</h1>
+      {% if collection.description %}<p style="color:var(--text-light);margin:.35rem 0 0">{{ collection.description }}</p>{% endif %}
+      <p style="color:var(--text-light);font-size:.875rem;margin:.35rem 0 0">{{ product_count }} products</p>
+    </div>
+    <!-- Sort -->
+    <form method="get" style="display:flex;align-items:center;gap:.5rem">
+      <label for="sort-select" style="font-size:.875rem;color:var(--text-light)">Sort:</label>
+      <select id="sort-select" name="sort" class="form-control" style="width:auto;padding:.45rem .75rem;font-size:.875rem" onchange="this.form.submit()">
+        <option value="default" {% if current_sort == 'default' %}selected{% endif %}>Featured</option>
+        <option value="price_asc" {% if current_sort == 'price_asc' %}selected{% endif %}>Price: Low to High</option>
+        <option value="price_desc" {% if current_sort == 'price_desc' %}selected{% endif %}>Price: High to Low</option>
+        <option value="rating" {% if current_sort == 'rating' %}selected{% endif %}>Top Rated</option>
+        <option value="newest" {% if current_sort == 'newest' %}selected{% endif %}>Newest</option>
+      </select>
+    </form>
+  </div>
+
+  {% if products %}
+    <div class="products-grid">
+      {% for product in products %}{% include 'shop/includes/product_card.html' %}{% endfor %}
+    </div>
+  {% else %}
+    <div style="text-align:center;padding:3rem 1rem;color:var(--text-light)">
+      <div style="font-size:3rem;margin-bottom:1rem">📦</div>
+      <p>No products in this collection yet. <a href="{% url 'shop:product_list' %}" class="text-primary">Browse all</a></p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

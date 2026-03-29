@@ -1,0 +1,53 @@
+{% extends 'shop/admin_panel/base_admin.html' %}
+{# Author: George Papasotiriou | Date Created: March 28, 2026 | Project: TrendMart #}
+{% block title %}Zero-Result Searches — TrendMart Admin{% endblock %}
+{% block admin_content %}
+<div class="admin-content-header">
+  <h1 class="admin-page-title">🔍 Zero-Result Searches</h1>
+</div>
+<p style="color:var(--text-light);font-size:.875rem;margin-bottom:1.5rem">Searches that returned no products — use this to identify gaps in your catalogue.</p>
+
+<!-- Top zero-result terms -->
+<div style="background:var(--card-bg);border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:2rem">
+  <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);font-weight:700;color:var(--dark)">Most Frequent Zero-Result Queries</div>
+  <table style="width:100%;border-collapse:collapse">
+    <thead><tr style="background:var(--bg)">
+      <th style="text-align:left;padding:.75rem 1.25rem;font-size:.8rem;color:var(--text-light);font-weight:600">Search Term</th>
+      <th style="text-align:right;padding:.75rem 1.25rem;font-size:.8rem;color:var(--text-light);font-weight:600">Times Searched</th>
+    </tr></thead>
+    <tbody>
+      {% for item in grouped %}
+      <tr style="border-top:1px solid var(--border)">
+        <td style="padding:.75rem 1.25rem;font-weight:600;color:var(--dark)">{{ item.query }}</td>
+        <td style="padding:.75rem 1.25rem;text-align:right"><span style="background:rgba(239,68,68,.1);color:#EF4444;font-weight:700;padding:.2rem .6rem;border-radius:var(--radius-full);font-size:.8rem">{{ item.count }}</span></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="2" style="text-align:center;padding:2rem;color:var(--text-light)">🎉 No zero-result searches recorded yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Recent zero-result log -->
+<div style="background:var(--card-bg);border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden">
+  <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);font-weight:700;color:var(--dark)">Recent Zero-Result Searches (100)</div>
+  <table style="width:100%;border-collapse:collapse">
+    <thead><tr style="background:var(--bg)">
+      <th style="text-align:left;padding:.75rem 1.25rem;font-size:.8rem;color:var(--text-light);font-weight:600">Query</th>
+      <th style="text-align:left;padding:.75rem 1rem;font-size:.8rem;color:var(--text-light);font-weight:600">User</th>
+      <th style="text-align:right;padding:.75rem 1.25rem;font-size:.8rem;color:var(--text-light);font-weight:600">Date</th>
+    </tr></thead>
+    <tbody>
+      {% for log in zero_results %}
+      <tr style="border-top:1px solid var(--border)">
+        <td style="padding:.625rem 1.25rem;font-weight:600;color:var(--dark)">{{ log.query }}</td>
+        <td style="padding:.625rem 1rem;color:var(--text-light);font-size:.875rem">{{ log.user|default:"Guest" }}</td>
+        <td style="padding:.625rem 1.25rem;text-align:right;color:var(--text-light);font-size:.8rem">{{ log.created_at|date:"M d, H:i" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="3" style="text-align:center;padding:2rem;color:var(--text-light)">No data.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

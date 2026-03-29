@@ -10,19 +10,36 @@ from pathlib import Path
 #               and optional integrations (OpenRouter AI, Stripe, email, OAuth,
 #               Redis cache, Django Channels WebSockets, Sitemap/SEO).
 #
-# SECURITY NOTE: Never commit real secret keys, API keys, or passwords to
-#               version control. Use environment variables in production.
+# SECURITY NOTE: All secrets are loaded from the .env file via python-dotenv.
+#               Never hardcode API keys or passwords here.
+#               Copy .env.example to .env and fill in your real values.
 # =============================================================================
 
-import os  # Used to read environment variables for sensitive configuration
+import os
+from dotenv import load_dotenv  # Loads variables from .env into os.environ
 
+# ── Load .env file ────────────────────────────────────────────────────────────
+# Looks for .env in the project root (BASE_DIR). Variables already set in the
+# real environment take precedence (override=False is the default).
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / '.env')
 
-SECRET_KEY = 'django-insecure-trendmart-qa1(#pr3sj!dim5*&j4aw)g%d_j20svljhggnt4lxl8irax3h-'
+# ── Core Django settings ──────────────────────────────────────────────────────
+# SECRET_KEY must be set in .env — no hardcoded fallback for security.
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    raise RuntimeError(
+        'SECRET_KEY is not set. Add it to your .env file. '
+        'Generate one with: python -c "from django.core.management.utils import '
+        'get_random_secret_key; print(get_random_secret_key())"'
+    )
 
-DEBUG = True
+# DEBUG defaults to False for safety; set DEBUG=True in .env during development
+DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = ['*']
+# In production set ALLOWED_HOSTS=trendmart.com,www.trendmart.com in .env
+_hosts = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1')
+ALLOWED_HOSTS = [h.strip() for h in _hosts.split(',')]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -40,34 +57,27 @@ INSTALLED_APPS = [
     # 'channels',
 ]
 
-# ── AI Assistant: OpenRouter API ─────────────────────────────
+# ── AI Assistant: OpenRouter API ─────────────────────────────────────────────
 # OpenRouter proxies many LLMs (GPT-4o, Claude, Gemini, etc.)
-# via a single OpenAI-compatible endpoint.
-# Key provided by George Papasotiriou for TrendMart AI assistant.
-# Docs: https://openrouter.ai/docs
-OPENROUTER_API_KEY = os.environ.get(
-    'OPENROUTER_API_KEY',
-    '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'
-)
+# via a single OpenAI-compatible endpoint. Docs: https://openrouter.ai/docs
+# Set OPENROUTER_API_KEY in your .env file — never hardcode it here.
+OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY', '')
 # The model to use — openai/gpt-4o-mini is fast, cheap, and highly capable.
-# Other options: "anthropic/claude-3-haiku", "google/gemini-flash-1.5", "mistralai/mistral-7b-instruct"
+# Other options: "anthropic/claude-3-haiku", "google/gemini-flash-1.5"
 OPENROUTER_MODEL = os.environ.get('OPENROUTER_MODEL', 'openai/gpt-4o-mini')
 
 # Legacy OPENAI_ settings kept for backward compat (now proxied via OpenRouter)
 OPENAI_API_KEY = OPENROUTER_API_KEY
 OPENAI_MODEL = OPENROUTER_MODEL
 
-# ── Optional: Stripe Payments ─────────────────────────────────
-# Set these keys to enable real payment processing
-# Get your keys at: https://dashboard.stripe.com/apikeys
+# ── Optional: Stripe Payments ─────────────────────────────────────────────────
+# Get keys at: https://dashboard.stripe.com/apikeys
 STRIPE_PUBLIC_KEY = os.environ.get('STRIPE_PUBLIC_KEY', '')
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
 
-# ── Optional: Google OAuth2 (Social Login) ────────────────────
+# ── Optional: Google OAuth2 (Social Login) ────────────────────────────────────
 # Install: pip install django-allauth
-# Then add 'allauth', 'allauth.account', 'allauth.socialaccount',
-#          'allauth.socialaccount.providers.google' to INSTALLED_APPS
 # Configure at: https://console.cloud.google.com/apis/credentials
 GOOGLE_OAUTH_CLIENT_ID = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', '')
 GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get('GOOGLE_OAUTH_CLIENT_SECRET', '')
@@ -138,11 +148,12 @@ LOGOUT_REDIRECT_URL = '/'
 
 SESSION_COOKIE_AGE = 86400 * 30
 
+# ── Security headers ──────────────────────────────────────────────────────────
 X_FRAME_OPTIONS = 'DENY'
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_BROWSER_XSS_FILTER = True
 
-# ── Cache Framework ───────────────────────────────────────────
+# ── Cache Framework ───────────────────────────────────────────────────────────
 # Uses Redis in production (ultra-fast, shared across workers).
 # Falls back to LocMemCache in development — no extra setup needed.
 # To switch to Redis: set REDIS_URL env var and pip install django-redis
@@ -171,7 +182,7 @@ else:
         }
     }
 
-# ── Django Channels (WebSockets) ──────────────────────────────
+# ── Django Channels (WebSockets) ──────────────────────────────────────────────
 # Enables real-time features: live stock warnings, order status push, chat.
 # Install: pip install channels channels-redis
 # Then uncomment 'channels' in INSTALLED_APPS and ASGI_APPLICATION below.
@@ -184,21 +195,20 @@ else:
 #     },
 # }
 
-# ── Image Optimization ────────────────────────────────────────
+# ── Image Optimization ────────────────────────────────────────────────────────
 # WebP conversion is handled in Product.save() via Pillow.
 # Set this to False to disable auto-conversion (e.g. during bulk imports).
 WEBP_CONVERSION_ENABLED = True
 # Quality 0-100: 85 gives excellent quality at ~60% smaller file size vs JPEG
 WEBP_QUALITY = 85
 
-# ── Sitemap / SEO ─────────────────────────────────────────────
+# ── Sitemap / SEO ─────────────────────────────────────────────────────────────
 # django.contrib.sitemaps is already in INSTALLED_APPS.
 # Sitemap URLs are registered in eshop/urls.py.
-# Robots.txt is served from templates/robots.txt via a simple TemplateView.
 SITE_NAME = 'TrendMart'
 SITE_DOMAIN = os.environ.get('SITE_DOMAIN', 'localhost:8000')
 
-# ── Email: order confirmations & alerts ───────────────────────
+# ── Email: order confirmations & alerts ───────────────────────────────────────
 # In development, emails are printed to the console.
 # In production set EMAIL_BACKEND to SMTP and configure your provider.
 if DEBUG:
@@ -210,4 +220,4 @@ else:
     EMAIL_USE_TLS = True
     EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'apikey')
     EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = 'TrendMart <noreply@trendmart.com>'
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'TrendMart <noreply@trendmart.com>')

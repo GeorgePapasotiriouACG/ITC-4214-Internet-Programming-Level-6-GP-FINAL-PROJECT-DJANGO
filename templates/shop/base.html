@@ -117,12 +117,20 @@
           <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
         </button>
 
-        <a href="{% url 'shop:cart' %}" class="nav-icon-btn" aria-label="Cart ({{ cart_count }} items)">
+        <!-- Cart icon — triggers mini cart drawer via JS custom event -->
+        <a href="{% url 'shop:cart' %}" class="nav-icon-btn" id="nav-cart-btn" aria-label="Cart ({{ cart_count }} items)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
           <span class="cart-badge" aria-hidden="true" {% if not cart_count %}style="display:none"{% endif %}>{{ cart_count }}</span>
         </a>
 
         {% if user.is_authenticated %}
+          <!-- Notification bell with unread badge — count polled via AJAX -->
+          <div class="nav-bell-wrap">
+            <a href="{% url 'shop:notification_list' %}" class="nav-icon-btn" id="notif-bell-btn" aria-label="Notifications">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+            </a>
+            <span class="nav-bell-badge" id="notif-badge" aria-live="polite" aria-label="Unread notifications"></span>
+          </div>
           <a href="{% url 'shop:wishlist' %}" class="nav-icon-btn" aria-label="Wishlist">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 000-7.78z"/></svg>
           </a>
@@ -328,50 +336,166 @@
 </div>
 
 <!-- ── AI Chat Widget ──────────────────────────────────── -->
+<!-- Hidden file input for image upload / visual product search -->
+<input type="file" id="ai-img-input" accept="image/*" style="display:none" aria-label="Upload image for visual product search">
+
 <div class="ai-chat-widget" role="complementary" aria-label="AI Shopping Assistant">
+  <!-- Floating trigger button — pulsing dot shows the AI is online -->
   <button id="ai-chat-trigger" class="ai-chat-trigger" aria-expanded="false" aria-controls="ai-chat-panel" aria-label="Open AI shopping assistant">
     🤖
+    <span class="ai-trigger-dot" aria-hidden="true"></span>
   </button>
+
   <div id="ai-chat-panel" class="ai-chat-panel" role="dialog" aria-label="TrendMart AI Assistant" aria-modal="false">
+    <!-- Header row: avatar, name/status, action buttons -->
     <div class="ai-chat-header">
       <div class="ai-avatar" aria-hidden="true">🤖</div>
       <div class="ai-info">
         <div class="ai-name">TrendMart AI <span class="ai-model-badge">GPT-4o</span></div>
         <div class="ai-status" id="ai-status-line">● Online &mdash; ready to help</div>
       </div>
-      <div style="display:flex;gap:.375rem;align-items:center">
-        <!-- Clear chat history — calls backend action to reset session memory -->
-        <button id="ai-clear-chat" class="ai-icon-btn" aria-label="Clear conversation history" title="New conversation">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+      <div style="display:flex;gap:.35rem;align-items:center;flex-shrink:0">
+        <!-- Export conversation — downloads full chat as .txt -->
+        <button id="ai-export-chat" class="ai-icon-btn" aria-label="Export conversation" title="Download chat history">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+        <!-- AI-powered search page shortcut -->
+        <a href="/ai/search/" class="ai-icon-btn" aria-label="Open AI search page" title="AI Smart Search" style="text-decoration:none">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+        </a>
+        <!-- Clear chat / new conversation -->
+        <button id="ai-clear-chat" class="ai-icon-btn" aria-label="Start new conversation" title="New conversation">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
         </button>
         <button id="ai-chat-close" class="ai-close" aria-label="Close chat">✕</button>
       </div>
     </div>
+
+    <!-- Message log — all chat bubbles appear here -->
     <div id="ai-messages" class="ai-messages" role="log" aria-live="polite" aria-label="Chat messages">
       <div class="ai-msg bot">
-        <div class="ai-bubble">Hi there! 👋 I'm your TrendMart AI assistant. I can help you find products, check deals, track orders, and more. What can I do for you today?</div>
+        <div class="ai-bubble">Hi there! 👋 I'm your <strong>TrendMart AI assistant</strong>. I can help you find products, check deals, recommend sizes, track orders, and more.<br><br>You can also 📷 <strong>upload an image</strong> to find similar products!<br><br>What can I do for you today?</div>
       </div>
     </div>
+
+    <!-- Quick-action suggestion buttons (context-aware) -->
     <div id="ai-quick-btns" class="ai-quick-btns" aria-label="Quick questions">
       <button class="ai-quick-btn">🔥 Hot deals</button>
       <button class="ai-quick-btn">📦 My orders</button>
       <button class="ai-quick-btn">💡 Recommend me</button>
+      <button class="ai-quick-btn">📏 Find my size</button>
       <button class="ai-quick-btn">↩️ Return policy</button>
-      <button class="ai-quick-btn">🔍 Search products</button>
       <button class="ai-quick-btn">🏷️ Best price</button>
     </div>
+
+    <!-- Image preview strip — shown when user selects an image to upload -->
+    <div id="ai-img-preview" class="ai-img-preview" style="display:none" aria-label="Image selected for visual search">
+      <img id="ai-img-thumb" src="" alt="Selected image preview">
+      <span id="ai-img-name" class="ai-img-name"></span>
+      <button id="ai-img-remove" class="ai-img-remove" aria-label="Remove selected image">✕</button>
+    </div>
+
+    <!-- Input area: text field + voice + image + send buttons -->
     <div class="ai-input-wrapper">
       <div class="ai-input-area">
         <label for="ai-input" class="sr-only">Type your message</label>
-        <input type="text" id="ai-input" placeholder="Ask me anything…" autocomplete="off" aria-label="Chat message input" maxlength="300">
-        <button id="ai-send" class="ai-send" aria-label="Send message">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        <input type="text" id="ai-input" placeholder="Ask anything or describe what you need…" autocomplete="off" aria-label="Chat message input" maxlength="500">
+        <!-- Microphone: Web Speech API voice input -->
+        <button id="ai-mic-btn" class="ai-action-btn" aria-label="Start voice input" title="Voice input" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+        <!-- Camera: upload an image for visual search -->
+        <button id="ai-img-btn" class="ai-action-btn" aria-label="Upload image for visual search" title="Upload image" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        </button>
+        <!-- Send button -->
+        <button id="ai-send" class="ai-send" aria-label="Send message" type="button">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
       </div>
       <div class="ai-input-footer">
-        <span class="ai-char-count" id="ai-char-count" aria-live="polite" aria-label="Characters typed">0/300</span>
+        <span class="ai-hint-text" id="ai-hint-text">Enter to send · Shift+Enter for new line</span>
+        <span class="ai-char-count" id="ai-char-count" aria-live="polite" aria-label="Characters typed">0/500</span>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Proactive chat bubble — appears automatically based on page context -->
+<div id="ai-proactive-bubble" class="ai-proactive-bubble" role="status" aria-live="polite" style="display:none">
+  <button id="ai-proactive-close" class="ai-proactive-close" aria-label="Dismiss suggestion">✕</button>
+  <p id="ai-proactive-text"></p>
+  <button id="ai-proactive-open" class="ai-proactive-open-btn">Chat with AI</button>
+</div>
+
+<!-- ── Mini Cart Slide-In Drawer ───────────────────────── -->
+<!-- Slides in from the right when user clicks cart or adds a product -->
+<div id="mini-cart-overlay" class="mini-cart-overlay" aria-hidden="true"></div>
+<div id="mini-cart-drawer" class="mini-cart-drawer" role="dialog" aria-label="Shopping cart" aria-modal="true" aria-hidden="true">
+  <div class="mini-cart-header">
+    <span>Your Cart <span id="mini-cart-count" style="font-size:.875rem;font-weight:600;color:var(--text-light)">({{ cart_count }})</span></span>
+    <button id="mini-cart-close" class="mini-cart-close" aria-label="Close cart drawer">✕</button>
+  </div>
+  <div id="mini-cart-items" class="mini-cart-items" aria-live="polite">
+    <p style="text-align:center;padding:2rem;color:var(--text-light)">Your cart is empty 🛒</p>
+  </div>
+  <div class="mini-cart-footer">
+    <div class="mini-cart-total">
+      <span>Total</span>
+      <span id="mini-cart-total-val">$0.00</span>
+    </div>
+    <div class="mini-cart-actions">
+      <a href="{% url 'shop:cart' %}" class="btn btn-outline" style="text-align:center">View Cart</a>
+      <a href="{% url 'shop:checkout' %}" class="btn btn-primary" style="text-align:center">Checkout →</a>
+    </div>
+  </div>
+</div>
+
+<!-- ── Mobile Bottom Navigation Bar ───────────────────── -->
+<!-- Persistent 5-icon bar on mobile (hidden on desktop via CSS) -->
+<nav class="mobile-bottom-nav" aria-label="Mobile navigation" role="navigation">
+  <div class="mobile-bottom-nav-inner">
+    <a href="{% url 'shop:home' %}" class="mobile-nav-item {% if request.resolver_match.url_name == 'home' %}active{% endif %}" aria-label="Home">
+      <span class="mobile-nav-icon" aria-hidden="true">🏠</span>
+      <span>Home</span>
+    </a>
+    <a href="{% url 'shop:search' %}" class="mobile-nav-item {% if request.resolver_match.url_name == 'search' %}active{% endif %}" aria-label="Search">
+      <span class="mobile-nav-icon" aria-hidden="true">🔍</span>
+      <span>Search</span>
+    </a>
+    <a href="{% url 'shop:cart' %}" class="mobile-nav-item {% if request.resolver_match.url_name == 'cart' %}active{% endif %}" aria-label="Cart ({{ cart_count }} items)">
+      <span class="mobile-nav-icon" aria-hidden="true">🛒</span>
+      {% if cart_count %}<span class="mobile-nav-badge" aria-hidden="true">{{ cart_count }}</span>{% endif %}
+      <span>Cart</span>
+    </a>
+    {% if user.is_authenticated %}
+    <a href="{% url 'shop:wishlist' %}" class="mobile-nav-item {% if request.resolver_match.url_name == 'wishlist' %}active{% endif %}" aria-label="Wishlist">
+      <span class="mobile-nav-icon" aria-hidden="true">❤️</span>
+      <span>Wishlist</span>
+    </a>
+    <a href="{% url 'shop:dashboard' %}" class="mobile-nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" aria-label="Account dashboard">
+      <span class="mobile-nav-icon" aria-hidden="true">👤</span>
+      <span>Account</span>
+    </a>
+    {% else %}
+    <a href="{% url 'shop:login' %}" class="mobile-nav-item" aria-label="Login">
+      <span class="mobile-nav-icon" aria-hidden="true">👤</span>
+      <span>Login</span>
+    </a>
+    {% endif %}
+  </div>
+</nav>
+
+<!-- ── GDPR Cookie Consent Banner ─────────────────────── -->
+<!-- Shown on first visit; user choice stored in localStorage -->
+<div id="cookie-banner" class="cookie-banner" role="dialog" aria-label="Cookie consent" aria-live="polite">
+  <p class="cookie-banner-text">
+    🍪 We use cookies to enhance your experience, personalise content, and analyse traffic.
+    <a href="#" style="color:var(--primary);font-weight:600">Learn more</a>
+  </p>
+  <div class="cookie-banner-actions">
+    <button id="cookie-decline" class="btn btn-ghost btn-sm">Decline</button>
+    <button id="cookie-accept" class="btn btn-primary btn-sm">Accept All</button>
   </div>
 </div>
 

@@ -1,0 +1,40 @@
+{% extends 'shop/base.html' %}
+{# Author: George Papasotiriou | Date Created: March 28, 2026 | Project: TrendMart #}
+{% block title %}Shop by Mood — TrendMart{% endblock %}
+{% block content %}
+<div class="container" style="padding-top:2rem;padding-bottom:3rem">
+  <div style="text-align:center;margin-bottom:2.5rem">
+    <h1 style="font-size:clamp(1.75rem,4vw,2.5rem);font-weight:900;background:linear-gradient(135deg,#7C3AED,#EC4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.5rem">Shop by Mood ✨</h1>
+    <p style="color:var(--text-light);font-size:1.0625rem">Curated collections for every occasion and lifestyle</p>
+  </div>
+
+  {% if collections %}
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.5rem">
+    {% for col in collections %}
+    <a href="{% url 'shop:collection_detail' col.slug %}" style="text-decoration:none;display:block;border-radius:var(--radius-lg);overflow:hidden;border:1.5px solid var(--border);background:var(--card-bg);box-shadow:var(--shadow);transition:transform .25s,box-shadow .25s" class="card-hover">
+      <div style="height:160px;background:linear-gradient(135deg,rgba(124,58,237,.12),rgba(236,72,153,.1));display:flex;align-items:center;justify-content:center;font-size:4rem">
+        {{ col.icon|default:"🛍️" }}
+      </div>
+      <div style="padding:1.25rem">
+        <div style="font-size:1.25rem;font-weight:800;color:var(--dark);margin-bottom:.35rem">{{ col.name }}</div>
+        {% if col.description %}
+          <p style="color:var(--text-light);font-size:.875rem;margin:0 0 .75rem;line-height:1.5">{{ col.description|truncatechars:100 }}</p>
+        {% endif %}
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:.8rem;color:var(--text-light)">{{ col.products.count }} products</span>
+          <span style="color:var(--primary);font-weight:700;font-size:.9rem">Explore →</span>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+    <div style="text-align:center;padding:4rem 1rem;color:var(--text-light)">
+      <div style="font-size:3rem;margin-bottom:1rem">✨</div>
+      <h2 style="font-size:1.25rem;font-weight:700;margin-bottom:.5rem">Collections coming soon</h2>
+      <p>Our curators are putting together amazing collections for you.</p>
+      <a href="{% url 'shop:product_list' %}" class="btn btn-primary" style="margin-top:1rem">Browse All Products</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,202 @@
+{% extends 'shop/base.html' %}
+{% load static shop_tags %}
+<!--
+  Author:       George Papasotiriou
+  Date Created: March 28, 2026
+  Project:      TrendMart E-Commerce Platform
+  File:         templates/shop/ai_search.html
+  Description:  Dedicated AI-powered natural-language search page at /ai/search/.
+                Users describe what they want in plain English; the OpenRouter LLM
+                parses the query into structured filters (category, brand, price range,
+                colour, size, keywords) and the matching products are shown in a grid.
+                Falls back to keyword search if the API is unavailable.
+-->
+
+{% block title %}AI Smart Search{% endblock %}
+{% block meta_description %}Search TrendMart with natural language — describe exactly what you need and our AI will find it.{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top:1.5rem;padding-bottom:4rem">
+
+  <!-- ── Breadcrumb ───────────────────────────────────────── -->
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="{% url 'shop:home' %}">Home</a>
+    <span class="breadcrumb-sep" aria-hidden="true">/</span>
+    <span class="breadcrumb-current">AI Smart Search</span>
+  </nav>
+
+  <!-- ── Hero / Search Form ──────────────────────────────── -->
+  <div class="ai-search-hero">
+    <div class="ai-search-hero-icon" aria-hidden="true">🧠</div>
+    <h1 class="ai-search-title">AI Smart Search</h1>
+    <p class="ai-search-subtitle">
+      Describe what you need in plain English — our AI will understand and find it for you.
+    </p>
+
+    <form action="{% url 'shop:ai_search' %}" method="get" class="ai-search-form" role="search" aria-label="AI natural language search">
+      <label for="ai-search-input" class="sr-only">Describe what you're looking for</label>
+      <div class="ai-search-input-wrap">
+        <!-- Animated placeholder examples cycle through suggestions via JS -->
+        <input
+          type="search" id="ai-search-input" name="q"
+          class="ai-search-input"
+          value="{{ query }}"
+          placeholder="e.g. Blue running shoes under $100 for men, size 10…"
+          autocomplete="off" spellcheck="true"
+          aria-label="Describe what you're looking for"
+          maxlength="300"
+        >
+        <button type="submit" class="ai-search-btn" aria-label="Search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <span>Search</span>
+        </button>
+      </div>
+    </form>
+
+    <!-- Example prompts to inspire users -->
+    <div class="ai-search-examples" aria-label="Example searches">
+      <span class="ai-search-examples-label">Try:</span>
+      <button class="ai-search-example-chip" type="button" data-query="wireless headphones under $80 with good bass">🎧 Wireless headphones under $80</button>
+      <button class="ai-search-example-chip" type="button" data-query="gifts for a teenage girl who loves fashion, budget $50">🎁 Gifts for teenage girls, $50</button>
+      <button class="ai-search-example-chip" type="button" data-query="Nike running shoes men size 10 blue">👟 Nike running shoes, size 10</button>
+      <button class="ai-search-example-chip" type="button" data-query="gaming laptop under $1000 with good GPU">💻 Gaming laptop under $1000</button>
+      <button class="ai-search-example-chip" type="button" data-query="summer dress for women in floral print medium">👗 Summer floral dress, medium</button>
+    </div>
+  </div>
+
+  <!-- ── AI Interpretation Banner ────────────────────────── -->
+  {% if query and ai_summary %}
+  <div class="ai-interpretation-banner" role="status" aria-live="polite">
+    <span class="ai-interp-icon" aria-hidden="true">🤖</span>
+    <div>
+      <strong>AI understood:</strong> {{ ai_summary }}
+      {% if interpreted %}
+      <div class="ai-interp-chips">
+        {% if interpreted.category %}<span class="ai-interp-chip">📂 {{ interpreted.category }}</span>{% endif %}
+        {% if interpreted.brand %}<span class="ai-interp-chip">🏷️ {{ interpreted.brand }}</span>{% endif %}
+        {% if interpreted.min_price or interpreted.max_price %}
+          <span class="ai-interp-chip">
+            💰
+            {% if interpreted.min_price %}${{ interpreted.min_price }}{% endif %}
+            {% if interpreted.min_price and interpreted.max_price %} – {% endif %}
+            {% if interpreted.max_price %}${{ interpreted.max_price }}{% endif %}
+          </span>
+        {% endif %}
+        {% if interpreted.color %}<span class="ai-interp-chip">🎨 {{ interpreted.color }}</span>{% endif %}
+        {% if interpreted.size %}<span class="ai-interp-chip">📐 Size {{ interpreted.size }}</span>{% endif %}
+        {% if interpreted.keywords %}
+          {% for kw in interpreted.keywords|slice:":4" %}
+            <span class="ai-interp-chip">🔍 {{ kw }}</span>
+          {% endfor %}
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+    <a href="{% url 'shop:product_list' %}{% if query %}?q={{ query }}{% endif %}" class="ai-interp-refine-btn">Advanced Filters</a>
+  </div>
+  {% endif %}
+
+  <!-- ── Results ──────────────────────────────────────────── -->
+  {% if query %}
+    {% if results %}
+      <div class="ai-search-results-header">
+        <h2 class="ai-results-count">{{ result_count }} result{{ result_count|pluralize }} found</h2>
+        <a href="{% url 'shop:product_list' %}" class="btn btn-ghost btn-sm">View All Products</a>
+      </div>
+      <!-- Product grid — same product card component as the main catalogue -->
+      <div class="products-grid" role="list" aria-label="Search results">
+        {% for product in results %}
+          {% include 'shop/includes/product_card.html' %}
+        {% endfor %}
+      </div>
+    {% else %}
+      <!-- Zero-results state with helpful suggestions -->
+      <div class="empty-state" style="margin-top:3rem" role="status">
+        <div class="empty-state-icon" aria-hidden="true">🔍</div>
+        <h3>No exact matches found</h3>
+        <p>The AI couldn't find products matching your description. Try rephrasing, or use the suggestions below.</p>
+        <div style="display:flex;gap:.75rem;flex-wrap:wrap;justify-content:center;margin-top:1.25rem">
+          <a href="{% url 'shop:product_list' %}" class="btn btn-primary">Browse All Products</a>
+          <a href="{% url 'shop:search' %}?q={{ query }}" class="btn btn-ghost">Keyword Search</a>
+        </div>
+        <p style="margin-top:1.5rem;font-size:.9rem;color:var(--text-light)">
+          💬 Or <button id="ai-fallback-chat" style="background:none;border:none;color:var(--primary);font-weight:700;cursor:pointer;padding:0;font-size:inherit">ask the AI assistant</button> directly — it can look harder!
+        </p>
+      </div>
+    {% endif %}
+  {% else %}
+    <!-- No query yet — show category quick links -->
+    <div class="ai-search-categories">
+      <h2 class="ai-search-cat-title">Or browse by category</h2>
+      <div class="category-chips">
+        {% for cat in root_categories %}
+          <a href="{% url 'shop:category' cat.slug %}" class="category-chip">
+            {% if cat.icon %}{{ cat.icon }}{% endif %} {{ cat.name }}
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── AI Search Page Interactions ────────────────────────────────────────────────
+// Author: George Papasotiriou — TrendMart, March 2026
+(function () {
+  const input = document.getElementById('ai-search-input');
+
+  // Example chip clicks — fill the search input and submit
+  document.querySelectorAll('.ai-search-example-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      if (input) {
+        input.value = chip.dataset.query;
+        // Short animation to show the text was inserted
+        input.focus();
+        chip.closest('form') || chip.closest('.ai-search-hero')
+          .querySelector('form')?.submit();
+        // Submit the parent form
+        document.querySelector('.ai-search-form')?.submit();
+      }
+    });
+  });
+
+  // "Ask the AI assistant" fallback button — open the chat widget
+  const fallbackBtn = document.getElementById('ai-fallback-chat');
+  if (fallbackBtn) {
+    fallbackBtn.addEventListener('click', () => {
+      const trigger = document.getElementById('ai-chat-trigger');
+      if (trigger) trigger.click();
+      // Pre-fill input with current query
+      setTimeout(() => {
+        const aiInput = document.getElementById('ai-input');
+        if (aiInput && input) {
+          aiInput.value = "I couldn't find what I was looking for: " + input.value;
+          aiInput.focus();
+        }
+      }, 300);
+    });
+  }
+
+  // Animated placeholder cycling through search examples
+  if (input && !input.value) {
+    const examples = [
+      'e.g. Blue running shoes under $100 for men, size 10…',
+      'e.g. Wireless headphones with noise cancellation under $80…',
+      'e.g. Gift ideas for a 10-year-old who loves science, budget $40…',
+      'e.g. Summer dresses in floral print, size M…',
+      'e.g. Gaming laptop with RTX GPU under $1000…',
+    ];
+    let idx = 0;
+    // Only cycle when not focused
+    setInterval(() => {
+      if (document.activeElement !== input) {
+        idx = (idx + 1) % examples.length;
+        input.placeholder = examples[idx];
+      }
+    }, 3500);
+  }
+})();
+</script>
+{% endblock %}
