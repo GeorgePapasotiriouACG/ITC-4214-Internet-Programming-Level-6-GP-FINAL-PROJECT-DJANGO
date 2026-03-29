@@ -25,20 +25,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
 # ── Core Django settings ──────────────────────────────────────────────────────
-# SECRET_KEY must be set in .env — no hardcoded fallback for security.
-SECRET_KEY = os.environ.get('SECRET_KEY')
-if not SECRET_KEY:
-    raise RuntimeError(
-        'SECRET_KEY is not set. Add it to your .env file. '
-        'Generate one with: python -c "from django.core.management.utils import '
-        'get_random_secret_key; print(get_random_secret_key())"'
-    )
+# SECRET_KEY is loaded from .env.  A safe development fallback is provided so
+# the project runs immediately after a fresh git clone without any setup.
+# NEVER use the fallback value in production — set a real key in your .env file.
+_DEV_SECRET = 'django-insecure-trendmart-dev-fallback-qa1(#pr3sj!dim5*&j4aw)g%d_j20svl'
+SECRET_KEY = os.environ.get('SECRET_KEY', _DEV_SECRET)
 
-# DEBUG defaults to False for safety; set DEBUG=True in .env during development
-DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
+# DEBUG defaults to True for the dev fallback; set DEBUG=False in .env for prod
+DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
 # In production set ALLOWED_HOSTS=trendmart.com,www.trendmart.com in .env
-_hosts = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1')
+_hosts = os.environ.get('ALLOWED_HOSTS', '*')
 ALLOWED_HOSTS = [h.strip() for h in _hosts.split(',')]
 
 INSTALLED_APPS = [
