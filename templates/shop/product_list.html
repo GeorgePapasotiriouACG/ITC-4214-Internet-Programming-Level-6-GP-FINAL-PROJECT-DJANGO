@@ -18,9 +18,28 @@
     {% endif %}
   </nav>
 
+  <!-- Mobile filter toggle bar -->
+  <div class="mobile-filter-bar">
+    <button class="mobile-filter-toggle" id="mobileFilterToggle" aria-expanded="false" aria-controls="filtersSidebar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+      Filters
+      {% if selected_category or sort %}
+        <span class="mobile-filter-badge">Active</span>
+      {% endif %}
+    </button>
+    <span class="mobile-filter-count">{{ products.paginator.count|default:products|length }} products</span>
+  </div>
+
+  <!-- Overlay backdrop for mobile filter -->
+  <div class="mobile-filter-overlay" id="mobileFilterOverlay" aria-hidden="true"></div>
+
   <div class="products-layout">
     <!-- Filters Sidebar -->
-    <aside class="filters-sidebar" aria-label="Product filters">
+    <aside class="filters-sidebar" id="filtersSidebar" aria-label="Product filters">
+      <!-- Mobile close button -->
+      <button class="mobile-filter-close" id="mobileFilterClose" aria-label="Close filters">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
       <form method="get" id="filter-form" aria-label="Filter products">
         {% if query %}<input type="hidden" name="q" value="{{ query }}">{% endif %}
 
@@ -160,29 +179,31 @@
       </div>
 
       {% if products %}
-        <div class="product-grid" role="list" aria-label="Product results">
+        <div class="product-grid" id="product-grid" role="list" aria-label="Product results">
           {% for product in products %}
           {% include "shop/includes/product_card.html" with product=product %}
           {% endfor %}
         </div>
 
-        <!-- Pagination -->
-        {% if products.has_other_pages %}
-        <nav class="pagination" aria-label="Page navigation">
-          {% if products.has_previous %}
-            <a href="?{% url_replace 'page' products.previous_page_number %}" class="page-btn" aria-label="Previous page">‹</a>
-          {% endif %}
-          {% for n in products.paginator.page_range %}
-            {% if n == products.number %}
-              <span class="page-btn active" aria-current="page" aria-label="Page {{ n }}">{{ n }}</span>
-            {% elif n >= products.number|add:"-2" and n <= products.number|add:"2" %}
-              <a href="?{% url_replace 'page' n %}" class="page-btn" aria-label="Page {{ n }}">{{ n }}</a>
-            {% endif %}
-          {% endfor %}
-          {% if products.has_next %}
-            <a href="?{% url_replace 'page' products.next_page_number %}" class="page-btn" aria-label="Next page">›</a>
-          {% endif %}
-        </nav>
+        <!-- Load More Button -->
+        {% if products.has_next %}
+        <div id="load-more-wrap" style="text-align:center;margin-top:2rem">
+          <button id="load-more-btn"
+                  class="btn btn-secondary"
+                  data-next-page="{{ products.next_page_number }}"
+                  data-has-next="true"
+                  aria-label="Load more products"
+                  style="min-width:180px">
+            Load More Products
+          </button>
+          <p id="load-more-count" style="margin-top:.625rem;font-size:.85rem;color:var(--text-light)">
+            Showing {{ products.object_list|length }} of {{ total_count }} products
+          </p>
+        </div>
+        {% else %}
+        <p style="text-align:center;margin-top:1.5rem;font-size:.875rem;color:var(--text-light)">
+          Showing all {{ total_count }} products
+        </p>
         {% endif %}
 
       {% else %}
@@ -206,5 +227,65 @@ function updateQueryParam(key, value) {
   url.searchParams.delete('page');
   return url.pathname + url.search;
 }
+
+/* ── Load More ──────────────────────────────────────────── */
+(function() {
+  const btn = document.getElementById('load-more-btn');
+  const grid = document.getElementById('product-grid');
+  const wrap = document.getElementById('load-more-wrap');
+  const countEl = document.getElementById('load-more-count');
+  if (!btn || !grid) return;
+
+  let loadedCount = grid.querySelectorAll('article.product-card').length;
+
+  btn.addEventListener('click', function() {
+    const nextPage = btn.dataset.nextPage;
+    if (!nextPage) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Loading...';
+
+    const url = new URL(window.location);
+    url.searchParams.set('page', nextPage);
+    url.searchParams.set('ajax', '1');
+
+    fetch(url.toString(), {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r => r.json())
+    .then(data => {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = data.html;
+      const newCards = tmp.querySelectorAll('article.product-card');
+      newCards.forEach(card => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(16px)';
+        grid.appendChild(card);
+        requestAnimationFrame(() => {
+          card.style.transition = 'opacity .3s ease, transform .3s ease';
+          card.style.opacity = '1';
+          card.style.transform = 'translateY(0)';
+        });
+      });
+
+      loadedCount += newCards.length;
+
+      if (data.has_next) {
+        btn.dataset.nextPage = data.next_page;
+        btn.disabled = false;
+        btn.textContent = 'Load More Products';
+        if (countEl) countEl.textContent = `Showing ${loadedCount} of ${data.total_count} products`;
+      } else {
+        if (wrap) {
+          wrap.innerHTML = `<p style="font-size:.875rem;color:var(--text-light)">All ${data.total_count} products shown</p>`;
+        }
+      }
+    })
+    .catch(() => {
+      btn.disabled = false;
+      btn.textContent = 'Load More Products';
+    });
+  });
+})();
 </script>
 {% endblock %}

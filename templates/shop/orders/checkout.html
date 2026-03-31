@@ -10,6 +10,43 @@
     <span class="breadcrumb-current">Checkout</span>
   </nav>
 
+  <!-- Multi-step checkout progress indicator -->
+  <div class="checkout-stepper" role="list" aria-label="Checkout steps" style="display:flex;align-items:center;gap:0;margin-bottom:2rem;max-width:600px">
+    <!-- Step 1: Cart (complete) -->
+    <div role="listitem" style="display:flex;align-items:center;flex:1">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:.35rem">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--success);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.9rem" aria-label="Step 1 Cart complete">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <span style="font-size:.75rem;font-weight:600;color:var(--success)">Cart</span>
+      </div>
+      <div style="flex:1;height:2px;background:var(--success);margin:0 .25rem;margin-bottom:1.25rem"></div>
+    </div>
+    <!-- Step 2: Checkout (active) -->
+    <div role="listitem" style="display:flex;align-items:center;flex:1">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:.35rem">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.9rem;box-shadow:0 0 0 4px var(--primary-light)" aria-current="step" aria-label="Step 2 Checkout current">2</div>
+        <span style="font-size:.75rem;font-weight:700;color:var(--primary)">Checkout</span>
+      </div>
+      <div style="flex:1;height:2px;background:var(--border);margin:0 .25rem;margin-bottom:1.25rem"></div>
+    </div>
+    <!-- Step 3: Review (pending) -->
+    <div role="listitem" style="display:flex;align-items:center;flex:1">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:.35rem">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--border);color:var(--text-light);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.9rem" aria-label="Step 3 Review pending">3</div>
+        <span style="font-size:.75rem;font-weight:600;color:var(--text-light)">Review</span>
+      </div>
+      <div style="flex:1;height:2px;background:var(--border);margin:0 .25rem;margin-bottom:1.25rem"></div>
+    </div>
+    <!-- Step 4: Confirmed (pending) -->
+    <div role="listitem" style="display:flex;align-items:center">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:.35rem">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--border);color:var(--text-light);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.9rem" aria-label="Step 4 Confirmed pending">4</div>
+        <span style="font-size:.75rem;font-weight:600;color:var(--text-light)">Confirmed</span>
+      </div>
+    </div>
+  </div>
+
   <h1 style="font-size:1.75rem;font-weight:800;color:var(--dark);margin-bottom:1.5rem">Checkout</h1>
 
   <div class="checkout-layout">

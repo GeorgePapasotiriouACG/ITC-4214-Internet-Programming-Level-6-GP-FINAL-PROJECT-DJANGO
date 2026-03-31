@@ -109,5 +109,35 @@
     </form>
   </div>
 
+  <!-- ── Account Security ───────────────────────────────────── -->
+  <div class="card" style="margin-top:1.5rem;padding:1.5rem">
+    <h2 style="font-size:1.1rem;font-weight:800;margin-bottom:1.25rem;display:flex;align-items:center;gap:.5rem">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Account Security
+    </h2>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem;background:var(--bg);border-radius:var(--radius);border:1.5px solid var(--border);flex-wrap:wrap;gap:1rem">
+      <div>
+        <div style="font-weight:700;font-size:.95rem">Two-Factor Authentication (2FA)</div>
+        {% if profile.totp_enabled %}
+          <div style="font-size:.82rem;color:var(--success);font-weight:600;margin-top:.2rem">✅ Enabled — your account is protected</div>
+        {% else %}
+          <div style="font-size:.82rem;color:var(--text-light);margin-top:.2rem">Not enabled — add an extra layer of security to your account</div>
+        {% endif %}
+      </div>
+      <a href="{% url 'shop:setup_2fa' %}" class="btn {% if profile.totp_enabled %}btn-ghost{% else %}btn-primary{% endif %} btn-sm">
+        {% if profile.totp_enabled %}Manage 2FA{% else %}Enable 2FA{% endif %}
+      </a>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem;background:var(--bg);border-radius:var(--radius);border:1.5px solid var(--border);flex-wrap:wrap;gap:1rem;margin-top:.75rem">
+      <div>
+        <div style="font-weight:700;font-size:.95rem">Delete Account</div>
+        <div style="font-size:.82rem;color:var(--text-light);margin-top:.2rem">Permanently remove your account and all associated data</div>
+      </div>
+      <a href="{% url 'shop:delete_account' %}" class="btn btn-ghost btn-sm" style="color:var(--error);border-color:var(--error)">Delete Account</a>
+    </div>
+  </div>
+
 </div>
 {% endblock %}

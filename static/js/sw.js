@@ -81,3 +81,39 @@ self.addEventListener('fetch', (event) => {
     caches.match(event.request).then(cached => cached || fetch(event.request))
   );
 });
+
+// ── Web Push: receive push event ────────────────────────────────────────────
+self.addEventListener('push', (event) => {
+  let data = { title: 'TrendMart', body: 'You have a new notification!', url: '/' };
+  try {
+    if (event.data) data = { ...data, ...event.data.json() };
+  } catch (_) {}
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/static/img/icon-192.png',
+      badge: '/static/img/icon-72.png',
+      data: { url: data.url || '/' },
+      vibrate: [100, 50, 100],
+      requireInteraction: false,
+    })
+  );
+});
+
+// ── Web Push: click on notification ─────────────────────────────────────────
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      for (const client of windowClients) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.navigate(targetUrl);
+          return client.focus();
+        }
+      }
+      return clients.openWindow(targetUrl);
+    })
+  );
+});

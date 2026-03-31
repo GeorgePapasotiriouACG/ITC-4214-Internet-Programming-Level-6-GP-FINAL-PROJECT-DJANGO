@@ -1,0 +1,77 @@
+# =============================================================================
+# Author:       George Papasotiriou
+# Date Created: March 28, 2026
+# Project:      TrendMart E-Commerce Platform
+# File:         requirements.txt
+# Description:  All Python dependencies required to run TrendMart.
+#               Install with: pip install -r requirements.txt
+#
+# Version pins use >= (minimum) + < (next major) to allow patch updates
+# while preventing breaking API changes from new major versions.
+# =============================================================================
+
+# ── Django Core ───────────────────────────────────────────────────────────────
+Django>=5.2,<6.0                # Web framework
+asgiref>=3.9,<4                 # Django's async support layer
+sqlparse>=0.5,<1                # SQL pretty-printer (Django dependency)
+
+# ── Image Processing ──────────────────────────────────────────────────────────
+Pillow>=11.0,<12                # Image upload handling + WebP auto-conversion
+
+# ── Environment & Secrets ─────────────────────────────────────────────────────
+python-dotenv>=1.0,<2           # Loads .env file into os.environ
+
+# ── HTTP Requests ─────────────────────────────────────────────────────────────
+requests>=2.32,<3               # Used by AI assistant for OpenRouter API calls
+urllib3>=2.0,<3                 # HTTP client (requests dependency)
+
+# ── Production Web Server ─────────────────────────────────────────────────────
+# gunicorn replaces the Django dev server for production deployments.
+# Usage: gunicorn eshop.wsgi --workers 3 --bind 0.0.0.0:8000
+gunicorn>=21.2,<22
+
+# ── Static File Serving ───────────────────────────────────────────────────────
+# WhiteNoise serves compressed, cache-busted static files directly from Django.
+# No separate Nginx config needed for simple single-server deployments.
+whitenoise>=6.7,<7
+
+# ── Database ──────────────────────────────────────────────────────────────────
+# dj-database-url parses DATABASE_URL env var → Django DATABASES dict.
+# Works with PostgreSQL, MySQL, and SQLite out of the box.
+dj-database-url>=2.2,<3
+
+# PostgreSQL adapter — required when DATABASE_URL points to a Postgres server.
+# Uses the binary distribution (no system libpq needed — easiest to install).
+# Comment out if you're only using SQLite locally.
+psycopg2-binary>=2.9,<3
+
+# ── Error Monitoring ──────────────────────────────────────────────────────────
+# Sentry captures unhandled exceptions and performance traces in production.
+# Set SENTRY_DSN in your .env to activate. Free tier covers most projects.
+sentry-sdk>=2.0,<3
+
+# ── Redis (optional — for caching + rate limiting) ────────────────────────────
+# Uncomment when you have a Redis server available.
+# Enables: shared cache across Gunicorn workers, Redis-backed sessions,
+#          WebSocket channel layer (Django Channels), cross-process rate limiting.
+# django-redis>=5.4,<6
+# channels>=4.0,<5
+# channels-redis>=4.2,<5
+
+# ── Fuzzy Search ──────────────────────────────────────────────────────────────
+# rapidfuzz: C-extension fuzzy string matching for typo-tolerant product search.
+# "Nikee" → "Nike", "headphons" → "headphones". ~30x faster than python-Levenshtein.
+rapidfuzz>=3.0,<4
+
+# ── Two-Factor Authentication ──────────────────────────────────────────────────
+# pyotp generates and verifies TOTP codes (Google Authenticator compatible).
+# qrcode[pil] renders the QR code the user scans to set up their authenticator app.
+pyotp>=2.9,<3
+qrcode[pil]>=8.0,<9
+
+# ── Development / Testing Only ────────────────────────────────────────────────
+# These are NOT needed in production — install separately or use requirements-dev.txt
+# Uncomment to run the test suite locally:
+# pytest>=8.0,<9
+# pytest-django>=4.8,<5
+# django-debug-toolbar>=4.4,<5

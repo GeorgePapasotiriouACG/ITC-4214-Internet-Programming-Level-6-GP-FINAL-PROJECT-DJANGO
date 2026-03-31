@@ -1,0 +1,329 @@
+{% extends "shop/base.html" %}
+{% load static %}
+
+{% block title %}Shipping Policy — TrendMart{% endblock %}
+{% block meta_description %}Everything you need to know about TrendMart shipping: delivery times, costs, tracking, and international orders.{% endblock %}
+
+{% block content %}
+<style>
+/* ── Page-level styles (scoped to this template) ──────────── */
+.policy-hero {
+  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #ec4899 100%);
+  color: #fff; padding: 5rem 0 7rem; text-align: center; position: relative; overflow: hidden;
+}
+.policy-hero::before {
+  content: ''; position: absolute; inset: 0;
+  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+.policy-hero-icon {
+  width: 80px; height: 80px; background: rgba(255,255,255,.2);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 1.5rem; font-size: 2.5rem; backdrop-filter: blur(8px);
+  animation: floatIcon 3s ease-in-out infinite;
+}
+@keyframes floatIcon { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+.policy-hero h1 { font-size: clamp(2rem, 5vw, 3rem); font-weight: 900; margin-bottom: .75rem; }
+.policy-hero p { font-size: 1.125rem; opacity: .9; max-width: 520px; margin: 0 auto; }
+
+.policy-wave {
+  margin-top: -4rem; fill: var(--bg);
+}
+.policy-body { max-width: 900px; margin: 0 auto; padding: 0 1.5rem 4rem; }
+
+/* Shipping option cards */
+.ship-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; margin: 2rem 0; }
+.ship-card {
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 1.75rem 1.5rem; text-align: center;
+  transition: transform var(--transition), box-shadow var(--transition);
+  position: relative; overflow: hidden;
+}
+.ship-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+}
+.ship-card.standard::before { background: linear-gradient(90deg, #7c3aed, #a855f7); }
+.ship-card.express::before { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+.ship-card.overnight::before { background: linear-gradient(90deg, #10b981, #3b82f6); }
+.ship-card.free::before { background: linear-gradient(90deg, #ec4899, #f43f5e); }
+.ship-card:hover { transform: translateY(-4px); box-shadow: 0 12px 35px rgba(0,0,0,.12); }
+.ship-card-icon { font-size: 2.25rem; margin-bottom: .75rem; }
+.ship-card-name { font-weight: 800; font-size: 1.05rem; color: var(--dark); margin-bottom: .25rem; }
+.ship-card-time { color: var(--primary); font-weight: 700; font-size: .9rem; margin-bottom: .5rem; }
+.ship-card-price { font-size: 1.5rem; font-weight: 900; color: var(--dark); margin-bottom: .5rem; }
+.ship-card-note { font-size: .825rem; color: var(--text-light); line-height: 1.6; }
+
+/* Section headers */
+.policy-section { margin: 3rem 0; }
+.policy-section-title {
+  font-size: 1.375rem; font-weight: 800; color: var(--dark);
+  margin-bottom: 1.25rem; display: flex; align-items: center; gap: .625rem;
+  padding-bottom: .75rem; border-bottom: 2px solid var(--border);
+}
+.policy-section-title span.icon { font-size: 1.3rem; }
+
+/* Timeline for order tracking steps */
+.track-timeline { position: relative; padding-left: 2rem; }
+.track-timeline::before {
+  content: ''; position: absolute; left: .625rem; top: .5rem; bottom: .5rem; width: 2px;
+  background: linear-gradient(to bottom, var(--primary), var(--accent));
+  border-radius: 2px;
+}
+.track-step { position: relative; padding: 0 0 1.75rem 1.5rem; }
+.track-step:last-child { padding-bottom: 0; }
+.track-step::before {
+  content: ''; position: absolute; left: -1.375rem; top: .3rem;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--primary); border: 2px solid #fff;
+  box-shadow: 0 0 0 3px rgba(124,58,237,.25);
+}
+.track-step-title { font-weight: 700; color: var(--dark); margin-bottom: .25rem; }
+.track-step-desc { font-size: .9rem; color: var(--text-light); line-height: 1.6; }
+
+/* Info boxes */
+.info-box {
+  border-radius: var(--radius); padding: 1.25rem 1.5rem; margin: 1.5rem 0;
+  display: flex; gap: 1rem; align-items: flex-start;
+}
+.info-box.tip { background: #eff6ff; border-left: 4px solid #3b82f6; }
+.info-box.warning { background: #fffbeb; border-left: 4px solid #f59e0b; }
+.info-box.success { background: #f0fdf4; border-left: 4px solid #10b981; }
+.info-box-icon { font-size: 1.4rem; flex-shrink: 0; margin-top: .1rem; }
+.info-box-content { flex: 1; }
+.info-box-title { font-weight: 700; color: var(--dark); margin-bottom: .25rem; font-size: .95rem; }
+.info-box-text { font-size: .9rem; color: var(--text-light); line-height: 1.6; }
+
+/* FAQ accordion inside policy page */
+.policy-faq { margin: 1rem 0; }
+.policy-faq-item {
+  border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: .625rem;
+  overflow: hidden;
+}
+.policy-faq-q {
+  width: 100%; background: var(--card-bg); border: none; cursor: pointer;
+  padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center;
+  font-weight: 600; font-size: .9375rem; color: var(--dark); text-align: left;
+}
+.policy-faq-q .chevron { transition: transform .3s ease; font-size: .8rem; }
+.policy-faq-item.open .chevron { transform: rotate(180deg); }
+.policy-faq-a {
+  max-height: 0; overflow: hidden; transition: max-height .35s ease, padding .35s ease;
+  background: var(--bg); color: var(--text-light); font-size: .9rem; line-height: 1.7;
+}
+.policy-faq-item.open .policy-faq-a { max-height: 300px; padding: .875rem 1.25rem 1.25rem; }
+
+/* Countries table */
+.zone-table { width: 100%; border-collapse: collapse; font-size: .9rem; margin: 1rem 0; }
+.zone-table th { background: rgba(124,58,237,.08); color: var(--dark); font-weight: 700; padding: .75rem 1rem; text-align: left; border-bottom: 2px solid var(--border); }
+.zone-table td { padding: .7rem 1rem; border-bottom: 1px solid var(--border); color: var(--text); }
+.zone-table tr:last-child td { border-bottom: none; }
+.zone-table tr:hover td { background: var(--light); }
+
+/* CTA strip */
+.policy-cta {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  color: #fff; border-radius: var(--radius-lg); padding: 2.5rem; text-align: center;
+  margin: 3rem 0;
+}
+.policy-cta h3 { font-size: 1.5rem; font-weight: 800; margin-bottom: .5rem; }
+.policy-cta p { opacity: .9; margin-bottom: 1.5rem; }
+.btn-white { background: #fff; color: var(--primary); border: none; }
+.btn-white:hover { background: #f5f3ff; }
+
+/* Animate on scroll */
+.fade-up { opacity: 0; transform: translateY(24px); transition: opacity .5s ease, transform .5s ease; }
+.fade-up.visible { opacity: 1; transform: none; }
+</style>
+
+<!-- Hero -->
+<section class="policy-hero">
+  <div class="container" style="position:relative;z-index:1">
+    <div class="policy-hero-icon">📦</div>
+    <h1>Shipping Policy</h1>
+    <p>Fast, reliable delivery — from our warehouse to your door. Everything you need to know.</p>
+  </div>
+</section>
+<svg class="policy-wave" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 80">
+  <path d="M0,40 C360,80 1080,0 1440,40 L1440,80 L0,80 Z"/>
+</svg>
+
+<div class="policy-body">
+
+  <!-- Shipping Options -->
+  <div class="policy-section fade-up">
+    <div class="policy-section-title">
+      <span class="icon">🚚</span> Delivery Options
+    </div>
+    <div class="ship-grid">
+      <div class="ship-card standard">
+        <div class="ship-card-icon">📬</div>
+        <div class="ship-card-name">Standard Delivery</div>
+        <div class="ship-card-time">3–5 Business Days</div>
+        <div class="ship-card-price">$4.99</div>
+        <div class="ship-card-note">Our most popular option. Trackable, reliable, great for non-urgent orders.</div>
+      </div>
+      <div class="ship-card express">
+        <div class="ship-card-icon">⚡</div>
+        <div class="ship-card-name">Express Delivery</div>
+        <div class="ship-card-time">1–2 Business Days</div>
+        <div class="ship-card-price">$9.99</div>
+        <div class="ship-card-note">Order by 2 PM for next-day dispatch. Available in mainland regions.</div>
+      </div>
+      <div class="ship-card overnight">
+        <div class="ship-card-icon">🌙</div>
+        <div class="ship-card-name">Overnight Delivery</div>
+        <div class="ship-card-time">Next Business Day</div>
+        <div class="ship-card-price">$19.99</div>
+        <div class="ship-card-note">Order by noon and receive your item the very next business morning.</div>
+      </div>
+      <div class="ship-card free">
+        <div class="ship-card-icon">🎁</div>
+        <div class="ship-card-name">Free Shipping</div>
+        <div class="ship-card-time">3–5 Business Days</div>
+        <div class="ship-card-price">FREE</div>
+        <div class="ship-card-note">Automatically applied on all orders over <strong>$50</strong>. No code needed!</div>
+      </div>
+    </div>
+
+    <div class="info-box success">
+      <span class="info-box-icon">🎉</span>
+      <div class="info-box-content">
+        <div class="info-box-title">Free Shipping on Orders Over $50</div>
+        <div class="info-box-text">Add items to your cart totalling $50 or more and standard shipping is automatically waived at checkout — no promo code required.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Order Tracking Timeline -->
+  <div class="policy-section fade-up">
+    <div class="policy-section-title">
+      <span class="icon">🔍</span> How Your Order Gets to You
+    </div>
+    <div class="track-timeline">
+      <div class="track-step">
+        <div class="track-step-title">1. Order Confirmed</div>
+        <div class="track-step-desc">You receive an email confirmation immediately. Your order is queued in our fulfilment system.</div>
+      </div>
+      <div class="track-step">
+        <div class="track-step-title">2. Processing &amp; Packing</div>
+        <div class="track-step-desc">Our warehouse team picks, quality-checks, and securely packs your items. Typically within 4–6 hours during business hours.</div>
+      </div>
+      <div class="track-step">
+        <div class="track-step-title">3. Dispatched with Carrier</div>
+        <div class="track-step-desc">Your package is handed to the carrier and you receive a tracking number via email. You can also track via your TrendMart dashboard.</div>
+      </div>
+      <div class="track-step">
+        <div class="track-step-title">4. Out for Delivery</div>
+        <div class="track-step-desc">Your local carrier scans the package. You may receive a push notification or SMS with a delivery window.</div>
+      </div>
+      <div class="track-step">
+        <div class="track-step-title">5. Delivered 🎉</div>
+        <div class="track-step-desc">Package arrives at your door! Leave a review to help other shoppers — and earn loyalty points.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- International Shipping -->
+  <div class="policy-section fade-up">
+    <div class="policy-section-title">
+      <span class="icon">🌍</span> International Shipping
+    </div>
+    <p style="color:var(--text-light);margin-bottom:1.25rem;line-height:1.7">We ship to over 40 countries worldwide. Delivery times and prices vary by destination zone.</p>
+    <table class="zone-table">
+      <thead>
+        <tr>
+          <th>Zone</th>
+          <th>Countries</th>
+          <th>Estimated Time</th>
+          <th>From</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>🇪🇺 Europe</td><td>Germany, France, Spain, Italy, Netherlands +30</td><td>5–9 business days</td><td>$12.99</td></tr>
+        <tr><td>🇺🇸 North America</td><td>USA, Canada, Mexico</td><td>7–12 business days</td><td>$14.99</td></tr>
+        <tr><td>🌏 Asia Pacific</td><td>Japan, Australia, Singapore, NZ</td><td>8–14 business days</td><td>$16.99</td></tr>
+        <tr><td>🌍 Middle East</td><td>UAE, Saudi Arabia, Qatar, Kuwait</td><td>7–12 business days</td><td>$15.99</td></tr>
+        <tr><td>🌎 Rest of World</td><td>All other supported countries</td><td>10–21 business days</td><td>$19.99</td></tr>
+      </tbody>
+    </table>
+    <div class="info-box warning">
+      <span class="info-box-icon">⚠️</span>
+      <div class="info-box-content">
+        <div class="info-box-title">Customs &amp; Import Duties</div>
+        <div class="info-box-text">International orders may be subject to customs fees, import duties, or taxes levied by your country's government. TrendMart is not responsible for these charges — they are the buyer's responsibility. Check with your local customs authority for details.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Common Questions -->
+  <div class="policy-section fade-up">
+    <div class="policy-section-title">
+      <span class="icon">❓</span> Frequently Asked Questions
+    </div>
+    <div class="policy-faq">
+      {% for q,a in faq_items %}
+      <div class="policy-faq-item">
+        <button class="policy-faq-q">{{ q }}<span class="chevron">▼</span></button>
+        <div class="policy-faq-a">{{ a }}</div>
+      </div>
+      {% empty %}
+      <div class="policy-faq-item">
+        <button class="policy-faq-q">Can I change my delivery address after ordering?<span class="chevron">▼</span></button>
+        <div class="policy-faq-a">Yes — but only within 1 hour of placing the order, before it enters the packing stage. Contact our support team immediately via the <a href="{% url 'shop:contact_support' %}">Contact Support</a> page.</div>
+      </div>
+      <div class="policy-faq-item">
+        <button class="policy-faq-q">My order says delivered but I haven't received it.<span class="chevron">▼</span></button>
+        <div class="policy-faq-a">Check with neighbours and around your property first (sometimes left in a safe place). If it's still missing after 24 hours, contact us with your order number and we'll investigate with the carrier immediately.</div>
+      </div>
+      <div class="policy-faq-item">
+        <button class="policy-faq-q">Do you ship to PO Boxes?<span class="chevron">▼</span></button>
+        <div class="policy-faq-a">Standard delivery ships to PO Boxes. Express and Overnight delivery require a physical street address for carrier signature requirements.</div>
+      </div>
+      <div class="policy-faq-item">
+        <button class="policy-faq-q">Can I track my order?<span class="chevron">▼</span></button>
+        <div class="policy-faq-a">Absolutely! Once dispatched, a tracking number is emailed to you. You can also view real-time status in your <a href="{% url 'shop:dashboard' %}">Order Dashboard</a>.</div>
+      </div>
+      <div class="policy-faq-item">
+        <button class="policy-faq-q">What happens if I miss the delivery?<span class="chevron">▼</span></button>
+        <div class="policy-faq-a">The carrier will leave a missed delivery card with instructions. Usually they attempt redelivery the next business day, or you can arrange collection from a local depot.</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="policy-cta fade-up">
+    <h3>Still have questions about your shipment?</h3>
+    <p>Our support team responds within 24 hours — usually much faster.</p>
+    <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap">
+      <a href="{% url 'shop:contact_support' %}" class="btn btn-white">📧 Contact Support</a>
+      <a href="{% url 'shop:dashboard' %}" class="btn" style="background:rgba(255,255,255,.2);color:#fff;border:2px solid rgba(255,255,255,.4)">📦 Track My Order</a>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ── Fade-up on scroll ─────────────────────────────────── */
+(function() {
+  const els = document.querySelectorAll('.fade-up');
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); io.unobserve(e.target); } });
+    }, { threshold: 0.1 });
+    els.forEach(el => io.observe(el));
+  } else {
+    els.forEach(el => el.classList.add('visible'));
+  }
+
+  /* ── FAQ accordion ─────────────────────────────────────── */
+  document.querySelectorAll('.policy-faq-q').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const item = btn.closest('.policy-faq-item');
+      const isOpen = item.classList.contains('open');
+      document.querySelectorAll('.policy-faq-item.open').forEach(i => i.classList.remove('open'));
+      if (!isOpen) item.classList.add('open');
+    });
+  });
+})();
+</script>
+{% endblock %}

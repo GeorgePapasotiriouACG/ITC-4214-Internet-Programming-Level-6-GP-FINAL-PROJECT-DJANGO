@@ -157,9 +157,43 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label" for="{{ product_form.description.id_for_label }}">Full Description <span class="required">*</span></label>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.375rem">
+          <label class="form-label" for="{{ product_form.description.id_for_label }}" style="margin-bottom:0">Full Description <span class="required">*</span></label>
+          <button type="button" id="ai-desc-btn"
+                  style="font-size:.75rem;padding:.25rem .6rem;border-radius:var(--radius-sm);border:1.5px solid var(--primary);background:rgba(124,58,237,.07);color:var(--primary);cursor:pointer;font-weight:700;display:flex;align-items:center;gap:.3rem;transition:all .2s"
+                  onclick="generateAIDescription()" title="Generate description with AI">
+            ✨ AI Generate
+          </button>
+        </div>
         {{ product_form.description }}
       </div>
+      <script>
+        function generateAIDescription() {
+          const nameInput = document.getElementById('{{ product_form.name.id_for_label }}');
+          const catSelect = document.getElementById('{{ product_form.category.id_for_label }}');
+          const brandSelect = document.getElementById('{{ product_form.brand.id_for_label }}');
+          const descField = document.getElementById('{{ product_form.description.id_for_label }}');
+          const btn = document.getElementById('ai-desc-btn');
+          const productName = nameInput?.value?.trim();
+          if (!productName) { alert('Please enter a product name first.'); return; }
+          const catText = catSelect?.options[catSelect.selectedIndex]?.text || '';
+          const brandText = brandSelect?.options[brandSelect.selectedIndex]?.text || '';
+          btn.textContent = '⏳ Generating…';
+          btn.disabled = true;
+          fetch('{% url "shop:ai_generate_description" %}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+            body: JSON.stringify({ name: productName, category: catText, brand: brandText }),
+          })
+          .then(r => r.json())
+          .then(d => {
+            if (d.description && descField) descField.value = d.description;
+            btn.innerHTML = '✅ Done';
+            setTimeout(() => { btn.innerHTML = '✨ AI Generate'; btn.disabled = false; }, 2500);
+          })
+          .catch(() => { btn.innerHTML = '✨ AI Generate'; btn.disabled = false; alert('AI generation failed. Please try again.'); });
+        }
+      </script>
 
       <div class="form-row">
         <div class="form-group">

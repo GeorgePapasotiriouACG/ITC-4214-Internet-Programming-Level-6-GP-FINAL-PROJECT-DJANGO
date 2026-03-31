@@ -12,6 +12,30 @@
     <a href="{% url 'shop:profile' %}" class="btn btn-ghost btn-sm">Edit Profile</a>
   </div>
 
+  <!-- Profile Completeness Bar (hidden when 100% complete) -->
+  {% if completeness_pct < 100 %}
+  <div class="card" style="margin-bottom:1.5rem;padding:1rem 1.25rem" role="complementary" aria-label="Profile completeness">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;flex-wrap:wrap;gap:.5rem">
+      <span style="font-weight:700;font-size:.95rem;color:var(--dark)">
+        📋 Profile Completeness — {{ completeness_pct }}%
+      </span>
+      <a href="{% url 'shop:profile' %}" class="text-primary font-bold" style="font-size:.8rem">Complete now →</a>
+    </div>
+    <!-- Progress bar filled to the computed percentage -->
+    <div style="background:var(--border);border-radius:99px;height:8px;overflow:hidden"
+         role="progressbar" aria-valuenow="{{ completeness_pct }}" aria-valuemin="0" aria-valuemax="100"
+         aria-label="Profile {{ completeness_pct }}% complete">
+      <div style="height:100%;width:{{ completeness_pct }}%;border-radius:99px;background:linear-gradient(90deg,var(--primary),var(--secondary));transition:width .5s ease"></div>
+    </div>
+    {% if completeness_missing %}
+    <p style="font-size:.75rem;color:var(--text-light);margin-top:.375rem">
+      Still missing: {{ completeness_missing|join:", " }}.
+      A complete profile unlocks better recommendations and a smoother shopping experience.
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
+
   <!-- Stats -->
   <div class="stats-grid" style="margin-bottom:2rem">
     <div class="stat-card">

@@ -50,8 +50,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/main.css' %}">
+  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=15">
   {% block extra_head %}{% endblock %}
+  {% block extra_css %}{% endblock %}
   <script>
     (function(){
       var t = localStorage.getItem('trendmart-theme');
@@ -223,10 +224,10 @@
       </div>
       <div>
         <div class="footer-col-title">Help</div>
-        <a href="#" class="footer-link">Shipping Policy</a>
-        <a href="#" class="footer-link">Returns &amp; Refunds</a>
-        <a href="#" class="footer-link">Contact Support</a>
-        <a href="#" class="footer-link">FAQ</a>
+        <a href="{% url 'shop:shipping_policy' %}" class="footer-link">Shipping Policy</a>
+        <a href="{% url 'shop:returns_refunds' %}" class="footer-link">Returns &amp; Refunds</a>
+        <a href="{% url 'shop:contact_support' %}" class="footer-link">Contact Support</a>
+        <a href="{% url 'shop:faq' %}" class="footer-link">FAQ</a>
       </div>
     </div>
     <div class="footer-bottom">
@@ -486,6 +487,161 @@
   </div>
 </nav>
 
+<!-- ── Product Comparison Bar & Modal ─────────────────── -->
+<div id="compare-bar" class="compare-bar" role="region" aria-label="Product comparison" aria-hidden="true">
+  <div class="compare-bar-items" id="compare-bar-items"></div>
+  <div class="compare-bar-actions">
+    <span class="compare-bar-count" id="compare-bar-count"></span>
+    <button id="compare-now-btn" class="btn btn-primary btn-sm" aria-label="Compare selected products">
+      Compare Now
+    </button>
+    <button id="compare-clear-btn" class="btn btn-ghost btn-sm" style="color:rgba(255,255,255,.7)">
+      Clear All
+    </button>
+  </div>
+</div>
+
+<div id="compare-modal-overlay" class="compare-modal-overlay" role="dialog" aria-modal="true" aria-label="Product comparison" aria-hidden="true">
+  <div class="compare-modal" id="compare-modal">
+    <div class="compare-modal-header">
+      <h2>Product Comparison</h2>
+      <button class="compare-modal-close" id="compare-modal-close" aria-label="Close comparison">✕</button>
+    </div>
+    <div class="compare-table-wrap">
+      <table class="compare-table" id="compare-table">
+        <thead><tr id="compare-table-head"></tr></thead>
+        <tbody id="compare-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     ACCESSIBILITY HUB — bottom-left radial bubble
+     ══════════════════════════════════════════════════════ -->
+<div class="a11y-hub" id="a11y-hub" role="region" aria-label="Accessibility tools">
+  <!-- Radial sub-options (shown when hub is open) -->
+  <div class="a11y-options" id="a11y-options" aria-hidden="true">
+    <button class="a11y-opt" id="a11y-voice-btn" data-label="Voice AI" aria-label="Voice AI Assistant">
+      <span class="a11y-opt-icon">🎤</span>
+      <span>Voice</span>
+    </button>
+    <button class="a11y-opt" id="a11y-text-btn" data-label="Text Size" aria-label="Text size options">
+      <span class="a11y-opt-icon">Aa</span>
+      <span>Text</span>
+    </button>
+    <button class="a11y-opt" id="a11y-color-btn" data-label="Color Mode" aria-label="Color mode options">
+      <span class="a11y-opt-icon">🎨</span>
+      <span>Color</span>
+    </button>
+    <button class="a11y-opt" id="a11y-contrast-btn" data-label="High Contrast" aria-label="High contrast">
+      <span class="a11y-opt-icon">◑</span>
+      <span>Contrast</span>
+    </button>
+    <button class="a11y-opt" id="a11y-font-btn" data-label="Dyslexia Font" aria-label="Dyslexia-friendly font">
+      <span class="a11y-opt-icon">D</span>
+      <span>Font</span>
+    </button>
+  </div>
+  <!-- Main trigger -->
+  <button class="a11y-main-btn" id="a11y-main-btn" aria-label="Toggle accessibility menu" aria-expanded="false" aria-controls="a11y-options">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <circle cx="12" cy="5" r="2" fill="currentColor" stroke="none"/>
+      <path d="M12 22v-8M5 9l7-2 7 2M9 22l3-8 3 8"/>
+    </svg>
+  </button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     ACCESSIBILITY OPTIONS PANEL (slides up from hub)
+     ══════════════════════════════════════════════════════ -->
+<div class="a11y-panel-overlay" id="a11y-panel-overlay" role="dialog" aria-modal="true" aria-label="Accessibility settings">
+  <div class="a11y-panel" id="a11y-panel">
+    <div class="a11y-panel-title">
+      <span>♿</span> Accessibility Options
+    </div>
+
+    <div class="a11y-section">
+      <div class="a11y-section-label">Text Size</div>
+      <div class="a11y-size-row">
+        <button class="a11y-size-btn" id="a11y-smaller" title="Smaller text" aria-label="Decrease text size">A−</button>
+        <span class="a11y-size-preview" id="a11y-size-label">Normal</span>
+        <button class="a11y-size-btn" id="a11y-larger" title="Larger text" aria-label="Increase text size">A+</button>
+        <button class="a11y-size-btn" id="a11y-reset-size" title="Reset text" aria-label="Reset text size">↺</button>
+      </div>
+    </div>
+
+    <div class="a11y-section">
+      <div class="a11y-section-label">Color Vision</div>
+      <div class="a11y-row">
+        <button class="a11y-toggle-btn" data-color-mode="normal" aria-pressed="true">Normal</button>
+        <button class="a11y-toggle-btn" data-color-mode="protanopia" aria-pressed="false">Protanopia</button>
+        <button class="a11y-toggle-btn" data-color-mode="deuteranopia" aria-pressed="false">Deuteranopia</button>
+        <button class="a11y-toggle-btn" data-color-mode="tritanopia" aria-pressed="false">Tritanopia</button>
+        <button class="a11y-toggle-btn" data-color-mode="grayscale" aria-pressed="false">Grayscale</button>
+      </div>
+    </div>
+
+    <div class="a11y-section">
+      <div class="a11y-section-label">Other Options</div>
+      <div class="a11y-row">
+        <button class="a11y-toggle-btn" id="a11y-contrast-toggle" aria-pressed="false">High Contrast</button>
+        <button class="a11y-toggle-btn" id="a11y-font-toggle" aria-pressed="false">Dyslexia Font</button>
+        <button class="a11y-toggle-btn" id="a11y-motion-toggle" aria-pressed="false">Reduce Motion</button>
+      </div>
+    </div>
+
+    <button class="btn btn-ghost btn-sm" id="a11y-reset-all" style="width:100%;margin-top:.5rem">Reset All</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     VOICE AI FULL-SCREEN OVERLAY
+     ══════════════════════════════════════════════════════ -->
+<div class="voice-overlay" id="voice-overlay" role="dialog" aria-modal="true" aria-label="Voice AI Assistant" aria-hidden="true">
+  <div class="voice-orb-wrap">
+    <div class="voice-ring"></div>
+    <div class="voice-ring"></div>
+    <div class="voice-ring"></div>
+    <div class="voice-ring"></div>
+    <div class="voice-orb">
+      <div class="voice-orb-mic">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="voice-status" id="voice-status" aria-live="polite">Tap the orb to speak</div>
+  <div class="voice-transcript" id="voice-transcript" aria-live="polite">
+    Hi! I'm TrendMart's Voice Assistant. Try saying "show me sneakers", "add to cart", or "what's on sale?"
+  </div>
+
+  <div class="voice-controls">
+    <button class="voice-close-btn" id="voice-close-btn" aria-label="Close voice assistant">✕</button>
+  </div>
+  <p class="voice-tap-hint">Tap the orb to start · Say "stop" or press ✕ to close</p>
+</div>
+
+<!-- SVG Colorblind Filters (hidden, referenced by CSS) -->
+<svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+  <defs>
+    <filter id="protanopia-filter">
+      <feColorMatrix type="matrix" values="0.567,0.433,0,0,0 0.558,0.442,0,0,0 0,0.242,0.758,0,0 0,0,0,1,0"/>
+    </filter>
+    <filter id="deuteranopia-filter">
+      <feColorMatrix type="matrix" values="0.625,0.375,0,0,0 0.7,0.3,0,0,0 0,0.3,0.7,0,0 0,0,0,1,0"/>
+    </filter>
+    <filter id="tritanopia-filter">
+      <feColorMatrix type="matrix" values="0.95,0.05,0,0,0 0,0.433,0.567,0,0 0,0.475,0.525,0,0 0,0,0,1,0"/>
+    </filter>
+  </defs>
+</svg>
+
 <!-- ── GDPR Cookie Consent Banner ─────────────────────── -->
 <!-- Shown on first visit; user choice stored in localStorage -->
 <div id="cookie-banner" class="cookie-banner" role="dialog" aria-label="Cookie consent" aria-live="polite">
@@ -499,7 +655,7 @@
   </div>
 </div>
 
-<script src="{% static 'js/main.js' %}"></script>
+<script src="{% static 'js/main.js' %}?v=15"></script>
 {% block extra_js %}{% endblock %}
 <script>
   if ('serviceWorker' in navigator) {

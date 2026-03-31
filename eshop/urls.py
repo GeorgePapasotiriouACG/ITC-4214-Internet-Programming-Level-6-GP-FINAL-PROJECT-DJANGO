@@ -8,7 +8,8 @@
 #               - The shop app (all storefront URLs) at /
 #               - XML sitemap at /sitemap.xml (SEO — Google/Bing indexing)
 #               - robots.txt at /robots.txt (crawler instruction file)
-#               - Media file serving in development (handled by WhiteNoise/CDN in prod)
+#               - Media file serving in development only
+#                 (in production, use Nginx or a CDN to serve /media/)
 # =============================================================================
 
 from django.contrib import admin
@@ -18,7 +19,7 @@ from django.conf.urls.static import static
 from django.contrib.sitemaps.views import sitemap
 from django.views.generic import TemplateView
 
-# Import TrendMart's sitemap classes
+# Import TrendMart's sitemap classes for SEO XML generation
 from shop.sitemaps import ProductSitemap, CategorySitemap, StaticSitemap
 
 # Registry of all sitemap sections — each key becomes a <url> group in the XML
@@ -41,7 +42,18 @@ urlpatterns = [
 
     # All TrendMart shop URLs (products, auth, cart, AI, admin panel, etc.)
     path('', include('shop.urls')),
+]
 
-# In development, Django serves uploaded media files (product images, avatars).
-# In production, replace this with a CDN (Cloudflare/CloudFront) or WhiteNoise.
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# ── Media file serving ────────────────────────────────────────────────────────
+# In development (DEBUG=True): Django serves uploaded images from /media/.
+# In production (DEBUG=False): This block is skipped. Instead:
+#   Option A — Nginx:  location /media/ { alias /path/to/media/; }
+#   Option B — AWS S3: Use django-storages + boto3, set MEDIA_URL to S3 bucket URL
+#   Option C — Cloudflare R2: Similar to S3, zero egress costs
+#
+# WhiteNoise does NOT serve /media/ — it only handles /static/.
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # Django Debug Toolbar — only in development
+    import debug_toolbar
+    urlpatterns += [path('__debug__/', include(debug_toolbar.urls))]

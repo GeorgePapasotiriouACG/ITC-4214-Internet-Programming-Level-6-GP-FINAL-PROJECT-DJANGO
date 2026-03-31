@@ -46,6 +46,25 @@
         {% endfor %}
       </div>
     {% else %}
+      <!-- "Did you mean?" suggestion when no results found -->
+      {% if did_you_mean %}
+      <div class="card" style="padding:1.25rem;margin-bottom:1.5rem;border-left:4px solid var(--primary);display:flex;align-items:center;gap:1rem;flex-wrap:wrap" role="status" aria-live="polite">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <div>
+          <span style="color:var(--text-light);font-size:.9rem">No results for "<strong>{{ query }}</strong>". Did you mean:</span>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.375rem">
+            {% for suggestion in did_you_mean %}
+            <a href="{% url 'shop:search' %}?q={{ suggestion }}"
+               class="btn btn-ghost" style="font-size:.875rem;padding:.35rem .875rem;font-weight:700;color:var(--primary)"
+               aria-label="Search for {{ suggestion }} instead">
+              {{ suggestion }}
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
       <div class="empty-state" role="status">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         <h2>No results for "{{ query }}"</h2>

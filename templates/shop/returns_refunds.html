@@ -1,0 +1,316 @@
+{% extends "shop/base.html" %}
+{% load static %}
+
+{% block title %}Returns &amp; Refunds — TrendMart{% endblock %}
+{% block meta_description %}TrendMart's hassle-free 30-day return policy. Learn how to return items, get refunds, and track return status.{% endblock %}
+
+{% block content %}
+<style>
+.policy-hero {
+  background: linear-gradient(135deg, #10b981 0%, #3b82f6 50%, #7c3aed 100%);
+  color: #fff; padding: 5rem 0 7rem; text-align: center; position: relative; overflow: hidden;
+}
+.policy-hero::before {
+  content: ''; position: absolute; inset: 0;
+  background: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Ccircle cx='40' cy='40' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+.policy-hero-icon {
+  width: 80px; height: 80px; background: rgba(255,255,255,.2);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 1.5rem; font-size: 2.5rem;
+  animation: pulse-hero 2.5s ease-in-out infinite;
+}
+@keyframes pulse-hero { 0%,100% { box-shadow: 0 0 0 0 rgba(255,255,255,.4); } 50% { box-shadow: 0 0 0 16px rgba(255,255,255,0); } }
+.policy-hero h1 { font-size: clamp(2rem, 5vw, 3rem); font-weight: 900; margin-bottom: .75rem; }
+.policy-hero p { font-size: 1.125rem; opacity: .9; max-width: 520px; margin: 0 auto; }
+.policy-wave { margin-top: -4rem; fill: var(--bg); }
+.policy-body { max-width: 900px; margin: 0 auto; padding: 0 1.5rem 4rem; }
+
+/* 30-day badge */
+.return-badge {
+  display: inline-flex; align-items: center; gap: .75rem;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff; border-radius: var(--radius-lg); padding: 1.25rem 2rem;
+  margin: 1.5rem 0; box-shadow: 0 8px 24px rgba(16,185,129,.3);
+}
+.return-badge-number { font-size: 3rem; font-weight: 900; line-height: 1; }
+.return-badge-text { font-size: 1.05rem; font-weight: 700; }
+.return-badge-sub { font-size: .875rem; opacity: .9; }
+
+/* Process steps */
+.return-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.5rem; margin: 2rem 0; }
+.return-step {
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 1.75rem 1.25rem; text-align: center;
+  transition: transform var(--transition), box-shadow var(--transition);
+  position: relative;
+}
+.return-step:hover { transform: translateY(-4px); box-shadow: 0 10px 30px rgba(0,0,0,.1); }
+.return-step-num {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: #fff; font-weight: 900; font-size: 1.05rem;
+  display: flex; align-items: center; justify-content: center; margin: 0 auto .875rem;
+}
+.return-step-icon { font-size: 1.75rem; margin-bottom: .625rem; }
+.return-step-title { font-weight: 700; color: var(--dark); margin-bottom: .35rem; font-size: .9rem; }
+.return-step-desc { font-size: .825rem; color: var(--text-light); line-height: 1.6; }
+
+/* Arrow between steps on desktop */
+@media (min-width: 768px) {
+  .return-step:not(:last-child)::after {
+    content: '→'; position: absolute; right: -1rem; top: 50%; transform: translateY(-50%);
+    font-size: 1.25rem; color: var(--primary); font-weight: 900; z-index: 1;
+  }
+}
+
+/* Policy section */
+.policy-section { margin: 3rem 0; }
+.policy-section-title {
+  font-size: 1.375rem; font-weight: 800; color: var(--dark);
+  margin-bottom: 1.25rem; display: flex; align-items: center; gap: .625rem;
+  padding-bottom: .75rem; border-bottom: 2px solid var(--border);
+}
+
+/* Eligible / Not eligible table */
+.eligibility-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; }
+@media (max-width: 600px) { .eligibility-grid { grid-template-columns: 1fr; } }
+.elig-card { border-radius: var(--radius); padding: 1.25rem; }
+.elig-card.yes { background: #f0fdf4; border: 1px solid #86efac; }
+.elig-card.no { background: #fef2f2; border: 1px solid #fca5a5; }
+.elig-card-title { font-weight: 800; margin-bottom: .75rem; display: flex; align-items: center; gap: .5rem; }
+.elig-card.yes .elig-card-title { color: #15803d; }
+.elig-card.no .elig-card-title { color: #b91c1c; }
+.elig-list { list-style: none; padding: 0; margin: 0; }
+.elig-list li { font-size: .875rem; padding: .35rem 0; color: var(--text); display: flex; align-items: flex-start; gap: .5rem; line-height: 1.5; }
+.elig-list li::before { flex-shrink: 0; margin-top: .1rem; }
+.elig-card.yes .elig-list li::before { content: '✅'; font-size: .8rem; }
+.elig-card.no .elig-list li::before { content: '❌'; font-size: .8rem; }
+
+/* Refund timeline */
+.refund-timeline { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem; margin: 1.5rem 0; }
+.refund-row { display: flex; align-items: center; gap: 1rem; padding: .625rem 0; }
+.refund-row:not(:last-child) { border-bottom: 1px solid var(--border); }
+.refund-method { font-weight: 700; color: var(--dark); font-size: .9rem; flex: 1; }
+.refund-time { font-size: .875rem; color: var(--text-light); }
+.refund-bar-wrap { flex: 2; height: 8px; background: var(--border); border-radius: var(--radius-full); overflow: hidden; }
+.refund-bar { height: 100%; border-radius: var(--radius-full); background: linear-gradient(90deg, #10b981, #3b82f6); }
+
+/* Info / warning boxes */
+.info-box { border-radius: var(--radius); padding: 1.25rem 1.5rem; margin: 1.5rem 0; display: flex; gap: 1rem; align-items: flex-start; }
+.info-box.tip { background: #eff6ff; border-left: 4px solid #3b82f6; }
+.info-box.warning { background: #fffbeb; border-left: 4px solid #f59e0b; }
+.info-box-icon { font-size: 1.4rem; flex-shrink: 0; margin-top: .1rem; }
+.info-box-title { font-weight: 700; color: var(--dark); margin-bottom: .25rem; font-size: .95rem; }
+.info-box-text { font-size: .9rem; color: var(--text-light); line-height: 1.6; }
+
+/* FAQ accordion */
+.policy-faq-item { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: .625rem; overflow: hidden; }
+.policy-faq-q { width: 100%; background: var(--card-bg); border: none; cursor: pointer; padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: .9375rem; color: var(--dark); text-align: left; }
+.policy-faq-q .chevron { transition: transform .3s ease; font-size: .8rem; }
+.policy-faq-item.open .chevron { transform: rotate(180deg); }
+.policy-faq-a { max-height: 0; overflow: hidden; transition: max-height .35s ease, padding .35s ease; background: var(--bg); color: var(--text-light); font-size: .9rem; line-height: 1.7; }
+.policy-faq-item.open .policy-faq-a { max-height: 300px; padding: .875rem 1.25rem 1.25rem; }
+
+/* CTA */
+.policy-cta { background: linear-gradient(135deg, #10b981, #3b82f6); color: #fff; border-radius: var(--radius-lg); padding: 2.5rem; text-align: center; margin: 3rem 0; }
+.policy-cta h3 { font-size: 1.5rem; font-weight: 800; margin-bottom: .5rem; }
+.policy-cta p { opacity: .9; margin-bottom: 1.5rem; }
+.btn-white { background: #fff; color: #10b981; border: none; }
+.btn-white:hover { background: #f0fdf4; }
+
+.fade-up { opacity: 0; transform: translateY(24px); transition: opacity .5s ease, transform .5s ease; }
+.fade-up.visible { opacity: 1; transform: none; }
+</style>
+
+<!-- Hero -->
+<section class="policy-hero">
+  <div class="container" style="position:relative;z-index:1">
+    <div class="policy-hero-icon">↩️</div>
+    <h1>Returns &amp; Refunds</h1>
+    <p>Hassle-free returns, guaranteed. Shop with total confidence — we've got you covered.</p>
+  </div>
+</section>
+<svg class="policy-wave" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 80">
+  <path d="M0,40 C360,80 1080,0 1440,40 L1440,80 L0,80 Z"/>
+</svg>
+
+<div class="policy-body">
+
+  <!-- 30-day badge + summary -->
+  <div class="fade-up" style="text-align:center;margin-bottom:2rem">
+    <div class="return-badge" style="justify-content:center;display:inline-flex">
+      <div class="return-badge-number">30</div>
+      <div>
+        <div class="return-badge-text">Day Returns</div>
+        <div class="return-badge-sub">No questions asked</div>
+      </div>
+    </div>
+    <p style="color:var(--text-light);max-width:580px;margin:1rem auto 0;line-height:1.7">Changed your mind? Not happy with your purchase? Simply return any eligible item within <strong>30 days</strong> of receiving it for a full refund or exchange — no awkward questions.</p>
+  </div>
+
+  <!-- How to Return -->
+  <div class="policy-section fade-up">
+    <div class="policy-section-title"><span>📋</span> How to Return in 4 Easy Steps</div>
+    <div class="return-steps">
+      <div class="return-step">
+        <div class="return-step-num">1</div>
+        <div class="return-step-icon">📱</div>
+        <div class="return-step-title">Start Your Return</div>
+        <div class="return-step-desc">Go to your <a href="{% url 'shop:order_list' %}">Orders page</a> and click "Return Item" next to the product.</div>
+      </div>
+      <div class="return-step">
+        <div class="return-step-num">2</div>
+        <div class="return-step-icon">📝</div>
+        <div class="return-step-title">Tell Us Why</div>
+        <div class="return-step-desc">Select a reason (e.g. wrong size, not as described) — takes 30 seconds.</div>
+      </div>
+      <div class="return-step">
+        <div class="return-step-num">3</div>
+        <div class="return-step-icon">📦</div>
+        <div class="return-step-title">Pack &amp; Send</div>
+        <div class="return-step-desc">Use the original packaging if possible. Print the prepaid return label we email you.</div>
+      </div>
+      <div class="return-step">
+        <div class="return-step-num">4</div>
+        <div class="return-step-icon">💳</div>
+        <div class="return-step-title">Get Refunded</div>
+        <div class="return-step-desc">Once we receive your return, your refund is processed within 2–5 business days.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Eligible vs Not Eligible -->
+  <div class="policy-section fade-up">
+    <div class="policy-section-title"><span>✅</span> What Can Be Returned?</div>
+    <div class="eligibility-grid">
+      <div class="elig-card yes">
+        <div class="elig-card-title">✅ Eligible for Return</div>
+        <ul class="elig-list">
+          <li>Unused items in original condition</li>
+          <li>Items with original tags/packaging</li>
+          <li>Defective or damaged goods</li>
+          <li>Wrong item received</li>
+          <li>Items that don't match the listing</li>
+          <li>Sealed electronics (unopened)</li>
+          <li>Clothing &amp; footwear (unworn)</li>
+          <li>Beauty products (sealed/unopened)</li>
+        </ul>
+      </div>
+      <div class="elig-card no">
+        <div class="elig-card-title">❌ Not Eligible</div>
+        <ul class="elig-list">
+          <li>Items used, washed, or worn</li>
+          <li>Opened software / digital downloads</li>
+          <li>Personalised or custom orders</li>
+          <li>Perishable goods (food, flowers)</li>
+          <li>Items missing original packaging</li>
+          <li>Returned after 30 days</li>
+          <li>Hazardous materials</li>
+          <li>Intimate apparel for hygiene reasons</li>
+        </ul>
+      </div>
+    </div>
+    <div class="info-box tip">
+      <span class="info-box-icon">💡</span>
+      <div class="info-box-content">
+        <div class="info-box-title">Tip: Photograph items before returning</div>
+        <div class="info-box-text">Take a photo of the item and packaging before sealing the return parcel. This protects you in the rare event of a dispute about the item's condition.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Refund Timelines -->
+  <div class="policy-section fade-up">
+    <div class="policy-section-title"><span>💰</span> Refund Timelines</div>
+    <p style="color:var(--text-light);margin-bottom:1rem;line-height:1.7">Once we confirm receipt of your return, refunds are processed within 2 business days from our end. Your bank's processing time varies:</p>
+    <div class="refund-timeline">
+      <div class="refund-row">
+        <div class="refund-method">💳 Credit / Debit Card</div>
+        <div class="refund-bar-wrap"><div class="refund-bar" style="width:40%"></div></div>
+        <div class="refund-time">3–5 business days</div>
+      </div>
+      <div class="refund-row">
+        <div class="refund-method">🏦 Bank Transfer</div>
+        <div class="refund-bar-wrap"><div class="refund-bar" style="width:60%"></div></div>
+        <div class="refund-time">5–7 business days</div>
+      </div>
+      <div class="refund-row">
+        <div class="refund-method">💜 TrendMart Store Credit</div>
+        <div class="refund-bar-wrap"><div class="refund-bar" style="width:8%"></div></div>
+        <div class="refund-time">Instant</div>
+      </div>
+      <div class="refund-row">
+        <div class="refund-method">🎁 Exchange for New Item</div>
+        <div class="refund-bar-wrap"><div class="refund-bar" style="width:15%"></div></div>
+        <div class="refund-time">Next-day dispatch</div>
+      </div>
+    </div>
+    <div class="info-box warning">
+      <span class="info-box-icon">⚠️</span>
+      <div class="info-box-content">
+        <div class="info-box-title">Original shipping cost</div>
+        <div class="info-box-text">The original shipping cost is refunded only if the return is due to a TrendMart error (wrong item, damaged goods, etc.). For change-of-mind returns, a small return shipping fee of $3.99 may apply.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAQ -->
+  <div class="policy-section fade-up">
+    <div class="policy-section-title"><span>❓</span> Returns FAQ</div>
+    <div>
+      <div class="policy-faq-item">
+        <button class="policy-faq-q">I've lost the original packaging. Can I still return?<span class="chevron">▼</span></button>
+        <div class="policy-faq-a">In many cases yes — use any secure packaging. However, some items (especially electronics) must be in their original box. Contact support and we'll advise on a case-by-case basis.</div>
+      </div>
+      <div class="policy-faq-item">
+        <button class="policy-faq-q">Can I exchange for a different size or colour?<span class="chevron">▼</span></button>
+        <div class="policy-faq-a">Yes! Select "Exchange" when starting your return and specify what you'd like instead. If the size/colour is available, we'll dispatch it as soon as we receive your return.</div>
+      </div>
+      <div class="policy-faq-item">
+        <button class="policy-faq-q">What if my item arrived damaged?<span class="chevron">▼</span></button>
+        <div class="policy-faq-a">We're so sorry to hear that! Please photograph the damage and contact us within 48 hours of delivery. We'll send a replacement at no charge or issue a full refund immediately — your choice.</div>
+      </div>
+      <div class="policy-faq-item">
+        <button class="policy-faq-q">Do I need to pay return shipping?<span class="chevron">▼</span></button>
+        <div class="policy-faq-a">For defective, damaged, or incorrect items — no, return shipping is fully covered by TrendMart. For change-of-mind returns, a $3.99 return label fee applies (deducted from the refund).</div>
+      </div>
+      <div class="policy-faq-item">
+        <button class="policy-faq-q">Can I return a gift?<span class="chevron">▼</span></button>
+        <div class="policy-faq-a">Yes. Gift returns are refunded as TrendMart store credit to the gift recipient, not the original purchaser, preserving everyone's privacy.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="policy-cta fade-up">
+    <h3>Need to start a return?</h3>
+    <p>It only takes 2 minutes — go to your orders and click "Return Item".</p>
+    <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap">
+      <a href="{% url 'shop:order_list' %}" class="btn btn-white">📦 My Orders</a>
+      <a href="{% url 'shop:contact_support' %}" class="btn" style="background:rgba(255,255,255,.2);color:#fff;border:2px solid rgba(255,255,255,.4)">💬 Contact Support</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const els = document.querySelectorAll('.fade-up');
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); io.unobserve(e.target); } });
+    }, { threshold: 0.1 });
+    els.forEach(el => io.observe(el));
+  } else { els.forEach(el => el.classList.add('visible')); }
+
+  document.querySelectorAll('.policy-faq-q').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const item = btn.closest('.policy-faq-item');
+      const isOpen = item.classList.contains('open');
+      document.querySelectorAll('.policy-faq-item.open').forEach(i => i.classList.remove('open'));
+      if (!isOpen) item.classList.add('open');
+    });
+  });
+})();
+</script>
+{% endblock %}

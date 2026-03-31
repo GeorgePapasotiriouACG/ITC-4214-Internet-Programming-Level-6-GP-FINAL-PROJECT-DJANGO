@@ -1,0 +1,591 @@
+{% extends "shop/base.html" %}
+{% block title %}FAQ — Frequently Asked Questions | TrendMart{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ══════════════════════════════════════════════════════════
+   FAQ PAGE — Modern Premium Design
+   ══════════════════════════════════════════════════════════ */
+
+/* Hero */
+.faq-hero {
+  position: relative; overflow: hidden;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%);
+  color: #fff; padding: 5rem 1.5rem 4rem; text-align: center;
+}
+.faq-hero::before {
+  content: ''; position: absolute; inset: 0;
+  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+.faq-hero-inner { position: relative; z-index: 1; max-width: 700px; margin: 0 auto; }
+.faq-hero-badge {
+  display: inline-flex; align-items: center; gap: .4rem;
+  background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3);
+  border-radius: 99px; padding: .35rem 1rem; font-size: .8rem; font-weight: 600;
+  letter-spacing: .5px; text-transform: uppercase; margin-bottom: 1.25rem;
+  backdrop-filter: blur(4px);
+}
+.faq-hero h1 {
+  font-size: clamp(2.25rem, 5vw, 3.5rem); font-weight: 900;
+  letter-spacing: -.02em; margin-bottom: .875rem; line-height: 1.1;
+}
+.faq-hero p { font-size: 1.15rem; opacity: .88; max-width: 540px; margin: 0 auto 2rem; line-height: 1.65; }
+
+/* Hero search box */
+.faq-search-wrap {
+  max-width: 520px; margin: 0 auto 1.75rem; position: relative;
+}
+.faq-search-wrap input {
+  width: 100%; padding: .95rem 1.25rem .95rem 3.25rem;
+  border-radius: 99px; border: 2px solid rgba(255,255,255,.3);
+  background: rgba(255,255,255,.12); color: #fff; font-size: 1rem;
+  backdrop-filter: blur(8px); transition: all .25s; outline: none;
+}
+.faq-search-wrap input::placeholder { color: rgba(255,255,255,.65); }
+.faq-search-wrap input:focus { border-color: rgba(255,255,255,.7); background: rgba(255,255,255,.2); }
+.faq-search-icon {
+  position: absolute; left: 1.1rem; top: 50%; transform: translateY(-50%);
+  color: rgba(255,255,255,.75); pointer-events: none; width: 18px; height: 18px;
+}
+.faq-search-count {
+  font-size: .8rem; opacity: .75; margin-top: .5rem; min-height: 1.2em;
+  transition: opacity .2s;
+}
+
+/* Hero CTA */
+.faq-hero-cta {
+  display: inline-flex; align-items: center; gap: .5rem;
+  background: #fff; color: var(--primary); font-weight: 700; font-size: .95rem;
+  padding: .75rem 1.75rem; border-radius: 99px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.2); transition: all .22s; border: none; cursor: pointer;
+}
+.faq-hero-cta:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,0,0,.25); background: #f0f4ff; }
+
+/* ── Stats bar ─────────────────────────────────────────── */
+.faq-stats {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 0; background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.faq-stat {
+  padding: 1.5rem 1rem; text-align: center;
+  border-right: 1px solid var(--border);
+}
+.faq-stat:last-child { border-right: none; }
+.faq-stat-num {
+  font-size: 2rem; font-weight: 900; color: var(--primary);
+  font-variant-numeric: tabular-nums; display: block;
+}
+.faq-stat-label { font-size: .75rem; font-weight: 600; color: var(--text-light); text-transform: uppercase; letter-spacing: .6px; }
+
+/* ── Main layout ───────────────────────────────────────── */
+.faq-layout {
+  display: grid; grid-template-columns: 240px 1fr; gap: 2.5rem;
+  max-width: 1140px; margin: 0 auto; padding: 3rem 1.5rem 5rem;
+}
+@media (max-width: 768px) { .faq-layout { grid-template-columns: 1fr; } .faq-stats { grid-template-columns: repeat(2,1fr); } }
+
+/* ── Sidebar category nav ──────────────────────────────── */
+.faq-sidebar { position: sticky; top: 5rem; height: fit-content; }
+.faq-sidebar-title { font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .8px; color: var(--text-light); margin-bottom: .75rem; padding: 0 .75rem; }
+.faq-sidebar-nav { display: flex; flex-direction: column; gap: .25rem; }
+.faq-side-btn {
+  display: flex; align-items: center; gap: .625rem;
+  padding: .625rem .875rem; border-radius: var(--radius-sm);
+  font-size: .9rem; font-weight: 500; color: var(--text);
+  background: none; border: none; cursor: pointer; text-align: left; width: 100%;
+  transition: all .18s;
+}
+.faq-side-btn:hover { background: var(--light); color: var(--primary); }
+.faq-side-btn.active { background: rgba(124,58,237,.1); color: var(--primary); font-weight: 700; }
+.faq-side-btn .faq-side-count {
+  margin-left: auto; font-size: .72rem; font-weight: 700;
+  background: var(--border); color: var(--text-light);
+  padding: .1rem .45rem; border-radius: 99px; min-width: 1.5rem; text-align: center;
+}
+.faq-side-btn.active .faq-side-count { background: rgba(124,58,237,.2); color: var(--primary); }
+@media (max-width: 768px) { .faq-sidebar { position: static; } .faq-sidebar-nav { flex-direction: row; flex-wrap: wrap; } }
+
+/* ── Accordion ─────────────────────────────────────────── */
+.faq-section { margin-bottom: 3rem; }
+.faq-section[hidden] { display: none; }
+.faq-section-header {
+  display: flex; align-items: center; gap: .75rem;
+  margin-bottom: 1.25rem; padding-bottom: .875rem;
+  border-bottom: 2px solid var(--border);
+}
+.faq-section-icon {
+  width: 42px; height: 42px; border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, rgba(124,58,237,.12), rgba(168,85,247,.12));
+  display: flex; align-items: center; justify-content: center; font-size: 1.35rem; flex-shrink: 0;
+}
+.faq-section-title { font-size: 1.2rem; font-weight: 800; color: var(--dark); margin: 0; }
+.faq-section-subtitle { font-size: .8rem; color: var(--text-light); margin-top: .15rem; }
+
+.faq-item {
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  margin-bottom: .5rem; background: var(--surface); overflow: hidden;
+  transition: box-shadow .2s, border-color .2s;
+}
+.faq-item:hover { box-shadow: 0 4px 16px rgba(0,0,0,.07); border-color: rgba(124,58,237,.25); }
+.faq-item.faq-hidden { display: none; }
+.faq-question {
+  width: 100%; text-align: left; background: none; border: none;
+  padding: 1.1rem 1.25rem; font-size: .975rem; font-weight: 600; color: var(--dark);
+  cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+  transition: color .2s;
+}
+.faq-question:hover { color: var(--primary); }
+.faq-question:focus-visible { outline: 3px solid var(--primary); outline-offset: -3px; }
+.faq-item.open .faq-question { color: var(--primary); }
+.faq-chevron {
+  width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%;
+  background: var(--light); display: flex; align-items: center; justify-content: center;
+  transition: transform .3s ease, background .2s;
+}
+.faq-chevron svg { width: 14px; height: 14px; stroke: currentColor; transition: stroke .2s; }
+.faq-item.open .faq-chevron { transform: rotate(180deg); background: rgba(124,58,237,.12); }
+.faq-item.open .faq-chevron svg { stroke: var(--primary); }
+
+.faq-answer-wrap {
+  max-height: 0; overflow: hidden;
+  transition: max-height .4s cubic-bezier(.4,0,.2,1);
+}
+.faq-item.open .faq-answer-wrap { max-height: 1000px; }
+.faq-answer {
+  padding: .25rem 1.25rem 1.35rem; color: var(--text); line-height: 1.8; font-size: .95rem;
+  border-top: 1px solid var(--border);
+}
+.faq-answer a { color: var(--primary); text-decoration: underline; }
+.faq-answer ul { margin: .5rem 0; padding-left: 1.5rem; }
+.faq-answer li { margin-bottom: .25rem; }
+.faq-answer strong { color: var(--dark); }
+
+/* ── No-results state ──────────────────────────────────── */
+.faq-no-results {
+  text-align: center; padding: 3rem 1.5rem; color: var(--text-light); display: none;
+}
+.faq-no-results.visible { display: block; }
+
+/* ── Popular topics chips ──────────────────────────────── */
+.faq-popular { margin-bottom: 2.5rem; }
+.faq-popular-title { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--text-light); margin-bottom: .75rem; }
+.faq-chips { display: flex; flex-wrap: wrap; gap: .5rem; }
+.faq-chip {
+  padding: .4rem 1rem; background: var(--light); border: 1.5px solid var(--border);
+  border-radius: 99px; font-size: .8rem; font-weight: 600; color: var(--text);
+  cursor: pointer; transition: all .18s;
+}
+.faq-chip:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+/* ── AI CTA banner ─────────────────────────────────────── */
+.faq-ai-banner {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed, #a855f7);
+  border-radius: var(--radius); padding: 3rem 2rem; text-align: center;
+  color: #fff; position: relative; overflow: hidden; margin-top: 1rem;
+}
+.faq-ai-banner::before {
+  content: ''; position: absolute; inset: 0;
+  background: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23fff' fill-opacity='0.04'%3E%3Ccircle cx='20' cy='20' r='10'/%3E%3C/g%3E%3C/svg%3E");
+}
+.faq-ai-banner > * { position: relative; z-index: 1; }
+.faq-ai-banner h3 { font-size: 1.75rem; font-weight: 900; margin-bottom: .5rem; }
+.faq-ai-banner p { opacity: .88; margin-bottom: 1.5rem; max-width: 480px; margin-left: auto; margin-right: auto; line-height: 1.65; }
+.faq-ai-orb {
+  width: 80px; height: 80px; background: rgba(255,255,255,.15);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 2.5rem; margin: 0 auto 1.25rem; backdrop-filter: blur(4px);
+  border: 2px solid rgba(255,255,255,.25);
+  animation: faq-orb-pulse 3s ease-in-out infinite;
+}
+@keyframes faq-orb-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,.3); }
+  50% { box-shadow: 0 0 0 14px rgba(255,255,255,0); }
+}
+.faq-ai-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; margin-bottom: 1.5rem; }
+.faq-ai-chip {
+  padding: .35rem .875rem; background: rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.3); border-radius: 99px;
+  font-size: .8rem; font-weight: 600; color: #fff; cursor: pointer;
+  transition: all .18s; backdrop-filter: blur(4px);
+}
+.faq-ai-chip:hover { background: rgba(255,255,255,.28); border-color: rgba(255,255,255,.6); }
+
+/* dark mode */
+[data-theme="dark"] .faq-item { background: var(--surface); border-color: var(--border); }
+[data-theme="dark"] .faq-question { color: var(--dark); }
+[data-theme="dark"] .faq-stat { background: var(--surface); }
+[data-theme="dark"] .faq-side-btn { color: var(--text); }
+[data-theme="dark"] .faq-side-btn:hover { background: rgba(255,255,255,.06); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ══════════════════════════════════════════════════════════
+     HERO
+══════════════════════════════════════════════════════════ -->
+<div class="faq-hero">
+  <div class="faq-hero-inner">
+    <div class="faq-hero-badge">❓ Help Centre</div>
+    <h1>How can we help you?</h1>
+    <p>Find instant answers to common questions about TrendMart — shopping, orders, returns, your account, and more.</p>
+
+    <div class="faq-search-wrap">
+      <svg class="faq-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="search" id="faq-search" placeholder="Search questions… e.g. "How do I return an item?"" autocomplete="off" aria-label="Search FAQs">
+      <div class="faq-search-count" id="faq-search-count" aria-live="polite"></div>
+    </div>
+
+    <button class="faq-hero-cta" onclick="document.getElementById('ai-chat-trigger').click()">
+      💬 Chat with TrendMart AI instead
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     STATS BAR
+══════════════════════════════════════════════════════════ -->
+<div class="faq-stats" role="region" aria-label="Platform statistics">
+  <div class="faq-stat">
+    <span class="faq-stat-num" data-target="112" data-suffix="+">0</span>
+    <span class="faq-stat-label">Products Listed</span>
+  </div>
+  <div class="faq-stat">
+    <span class="faq-stat-num" data-target="24" data-suffix="/7">0</span>
+    <span class="faq-stat-label">AI Support</span>
+  </div>
+  <div class="faq-stat">
+    <span class="faq-stat-num" data-target="98" data-suffix="%">0</span>
+    <span class="faq-stat-label">Customer Satisfaction</span>
+  </div>
+  <div class="faq-stat">
+    <span class="faq-stat-num" data-target="3" data-suffix=" Days">0</span>
+    <span class="faq-stat-label">Avg. Shipping Time</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     MAIN LAYOUT
+══════════════════════════════════════════════════════════ -->
+<div class="faq-layout">
+
+  <!-- ── Sidebar ──────────────────────────────────── -->
+  <aside class="faq-sidebar" aria-label="FAQ categories">
+    <div class="faq-sidebar-title">Browse by Topic</div>
+    <nav class="faq-sidebar-nav">
+      <button class="faq-side-btn active" data-cat="all">🗂️ All Questions <span class="faq-side-count">35</span></button>
+      <button class="faq-side-btn" data-cat="shopping">🛒 Shopping <span class="faq-side-count">8</span></button>
+      <button class="faq-side-btn" data-cat="orders">📦 Orders &amp; Delivery <span class="faq-side-count">7</span></button>
+      <button class="faq-side-btn" data-cat="returns">↩️ Returns &amp; Refunds <span class="faq-side-count">5</span></button>
+      <button class="faq-side-btn" data-cat="account">👤 Account &amp; Security <span class="faq-side-count">6</span></button>
+      <button class="faq-side-btn" data-cat="payments">💳 Payments &amp; Promos <span class="faq-side-count">5</span></button>
+      <button class="faq-side-btn" data-cat="sellers">🏪 Selling on TrendMart <span class="faq-side-count">4</span></button>
+    </nav>
+  </aside>
+
+  <!-- ── Content ──────────────────────────────────── -->
+  <div id="faq-content">
+
+    <!-- Popular chips -->
+    <div class="faq-popular">
+      <div class="faq-popular-title">🔥 Popular Questions</div>
+      <div class="faq-chips">
+        <button class="faq-chip" data-q="How do I track my order">Track my order</button>
+        <button class="faq-chip" data-q="How do I return an item">Return an item</button>
+        <button class="faq-chip" data-q="When will my order arrive">Delivery times</button>
+        <button class="faq-chip" data-q="How do I apply a promo code">Promo codes</button>
+        <button class="faq-chip" data-q="Is my payment secure">Payment security</button>
+        <button class="faq-chip" data-q="How do I become a seller">Become a seller</button>
+        <button class="faq-chip" data-q="Can I change my order">Modify my order</button>
+      </div>
+    </div>
+
+    <!-- ─── SECTION: Shopping ─────────────────────── -->
+    <section class="faq-section" data-cat="shopping" itemscope itemtype="https://schema.org/FAQPage">
+      <div class="faq-section-header">
+        <div class="faq-section-icon">🛒</div>
+        <div>
+          <div class="faq-section-title">Shopping</div>
+          <div class="faq-section-subtitle">Browsing, products, and checkout</div>
+        </div>
+      </div>
+
+      {% include "shop/faq_item.html" with id="s1" q="How do I find products on TrendMart?" a="Use the search bar at the top of every page, browse by category using the navigation bar, or ask our AI assistant what you're looking for. You can also filter products by price, brand, rating, and more on the product listing page." %}
+      {% include "shop/faq_item.html" with id="s2" q="Can I save items to buy later?" a="Yes! Click the heart icon (♡) on any product card or product page to add it to your Wishlist. Your wishlist is saved to your account and accessible from your dashboard at any time." %}
+      {% include "shop/faq_item.html" with id="s3" q="What does the 'Quick View' feature do?" a="Quick View lets you see product images, description, price, size options, and reviews without leaving the current page. Click the magnifier icon on any product card to open Quick View." %}
+      {% include "shop/faq_item.html" with id="s4" q="How do I compare products?" a="Click the 'Compare' button on a product card to add it to the comparison bar at the bottom of the screen. You can compare up to 4 products side-by-side. Click 'Compare Now' in the bar to see the full comparison table." %}
+      {% include "shop/faq_item.html" with id="s5" q="Are product images accurate?" a="All product images are provided by our verified retailers. We require high-resolution images and have a quality review process. For fashion items, the colour may appear slightly different on various screens — most product pages include multiple angle shots." %}
+      {% include "shop/faq_item.html" with id="s6" q="How do I know if an item is in stock?" a="Product pages show real-time stock levels. Items with fewer than 5 units remaining display an 'Only X left!' badge. Out-of-stock items show a 'Notify me when back in stock' button — click it to get an email alert the moment stock is replenished." %}
+      {% include "shop/faq_item.html" with id="s7" q="What is the AI Shopping Assistant?" a="TrendMart AI is a 24/7 intelligent shopping assistant powered by advanced language models. It can recommend products, answer questions about your orders, explain return policies, find deals, and even help you find the right size. Open it via the chat bubble at the bottom-right of any page." %}
+      {% include "shop/faq_item.html" with id="s8" q="Can I request a product not listed on the platform?" a="Yes! Use the AI assistant and tell it what you're looking for. Our team reviews popular requests and works with retailers to list them. You can also contact support via the Contact page." %}
+    </section>
+
+    <!-- ─── SECTION: Orders & Delivery ───────────── -->
+    <section class="faq-section" data-cat="orders" itemscope itemtype="https://schema.org/FAQPage">
+      <div class="faq-section-header">
+        <div class="faq-section-icon">📦</div>
+        <div>
+          <div class="faq-section-title">Orders &amp; Delivery</div>
+          <div class="faq-section-subtitle">Placing orders, tracking, and shipping</div>
+        </div>
+      </div>
+
+      {% include "shop/faq_item.html" with id="o1" q="How do I track my order?" a="Go to Dashboard → My Orders and click on any order to see its full tracking timeline — from 'Order Placed' to 'Delivered'. You'll also receive email notifications at each key stage. You can also ask the AI assistant 'Where is my order?' for an instant summary." %}
+      {% include "shop/faq_item.html" with id="o2" q="When will my order arrive?" a="Standard shipping takes 3–5 business days. Express shipping (where available) takes 1–2 business days. International orders may take 7–14 business days. Your specific estimated delivery date is shown on the order confirmation page and in your order details." %}
+      {% include "shop/faq_item.html" with id="o3" q="Can I change or cancel my order after placing it?" a="You can cancel or modify your order within 1 hour of placing it by going to Dashboard → My Orders → Cancel. After this window, the order may already be processing for dispatch. Contact support immediately via the chat for urgent cases." %}
+      {% include "shop/faq_item.html" with id="o4" q="What happens if my package doesn't arrive?" a="If your order hasn't arrived within 2 days of the expected delivery date, please contact support with your order number. We will investigate with the shipping carrier and either reship your order or issue a full refund." %}
+      {% include "shop/faq_item.html" with id="o5" q="Can I ship to multiple addresses?" a="Each order is shipped to one address. If you need items sent to different locations, place separate orders. You can save up to 5 delivery addresses in your account under Dashboard → My Addresses." %}
+      {% include "shop/faq_item.html" with id="o6" q="Is free shipping available?" a="Free shipping is offered on orders over $50 (conditions may vary by retailer). Promotional free shipping events are announced via the homepage flash deals strip and email newsletter. Use promo codes from our Deals page for shipping discounts." %}
+      {% include "shop/faq_item.html" with id="o7" q="Do you ship internationally?" a="TrendMart supports international shipping to over 40 countries. Shipping rates and estimated times are calculated at checkout based on your delivery address. Import duties or customs fees may apply depending on your country — these are the buyer's responsibility." %}
+    </section>
+
+    <!-- ─── SECTION: Returns & Refunds ───────────── -->
+    <section class="faq-section" data-cat="returns" itemscope itemtype="https://schema.org/FAQPage">
+      <div class="faq-section-header">
+        <div class="faq-section-icon">↩️</div>
+        <div>
+          <div class="faq-section-title">Returns &amp; Refunds</div>
+          <div class="faq-section-subtitle">Our hassle-free return policy</div>
+        </div>
+      </div>
+
+      {% include "shop/faq_item.html" with id="r1" q="What is TrendMart's return policy?" a="We offer a 30-day hassle-free returns policy on most items. Products must be unused, in original packaging, and accompanied by proof of purchase. Certain categories (underwear, digital downloads, perishables) are non-returnable for hygiene reasons. See our full Returns Policy page for details." %}
+      {% include "shop/faq_item.html" with id="r2" q="How do I return an item?" a="Go to Dashboard → My Orders → select the order → click 'Return Item'. Select the items and reason, then print the pre-paid return label. Drop your package at any compatible courier location. Refunds are processed within 3–5 business days of us receiving the return." %}
+      {% include "shop/faq_item.html" with id="r3" q="How long do refunds take?" a="Once we receive and inspect your return, refunds are processed within 3–5 business days. The time to appear in your account depends on your bank — typically 3–7 additional business days for card payments. You'll receive an email confirmation when the refund is issued." %}
+      {% include "shop/faq_item.html" with id="r4" q="What if I received a damaged or wrong item?" a="We sincerely apologise! Contact support immediately via the AI assistant or Contact page with your order number and a photo of the item. We will send a replacement or issue a full refund — at no cost to you — within 1 business day." %}
+      {% include "shop/faq_item.html" with id="r5" q="Can I exchange an item instead of returning it?" a="Direct exchanges are not currently supported. The fastest path is: return the original item → receive your refund → place a new order for the correct item. This ensures you get the fastest possible resolution." %}
+    </section>
+
+    <!-- ─── SECTION: Account & Security ──────────── -->
+    <section class="faq-section" data-cat="account" itemscope itemtype="https://schema.org/FAQPage">
+      <div class="faq-section-header">
+        <div class="faq-section-icon">👤</div>
+        <div>
+          <div class="faq-section-title">Account &amp; Security</div>
+          <div class="faq-section-subtitle">Profile, 2FA, passwords, and privacy</div>
+        </div>
+      </div>
+
+      {% include "shop/faq_item.html" with id="a1" q="How do I create an account?" a="Click 'Sign Up' in the top navigation bar. Enter your name, email, and a secure password. You can also register as a Retailer if you want to sell on TrendMart. Account creation is free and takes less than 60 seconds." %}
+      {% include "shop/faq_item.html" with id="a2" q="How do I enable Two-Factor Authentication (2FA)?" a="Go to Dashboard → Account Settings → Security → Enable 2FA. Scan the QR code with an authenticator app (e.g. Google Authenticator, Authy), then enter the 6-digit code to confirm. 2FA adds a vital second layer of security to your account." %}
+      {% include "shop/faq_item.html" with id="a3" q="I forgot my password. How do I reset it?" a="Click 'Login', then 'Forgot your password?'. Enter your email address and we'll send you a secure reset link within a few minutes. The link expires after 24 hours. Check your spam folder if it doesn't arrive." %}
+      {% include "shop/faq_item.html" with id="a4" q="How do I delete my account?" a="Go to Dashboard → Account Settings → Danger Zone → Delete My Account. Your personal data will be anonymised in compliance with GDPR. Order history is retained in anonymised form for legal and financial record-keeping purposes." %}
+      {% include "shop/faq_item.html" with id="a5" q="Is my personal data safe?" a="TrendMart takes data security seriously. All data is encrypted in transit (HTTPS/TLS) and at rest. We never sell your personal data to third parties. You can request a data export or deletion at any time. See our Privacy Policy for full details." %}
+      {% include "shop/faq_item.html" with id="a6" q="Can I have multiple accounts?" a="One account per person is allowed. If you need both a customer and retailer account, your single account can be upgraded to Retailer status — you don't need separate accounts." %}
+    </section>
+
+    <!-- ─── SECTION: Payments & Promos ───────────── -->
+    <section class="faq-section" data-cat="payments" itemscope itemtype="https://schema.org/FAQPage">
+      <div class="faq-section-header">
+        <div class="faq-section-icon">💳</div>
+        <div>
+          <div class="faq-section-title">Payments &amp; Promotions</div>
+          <div class="faq-section-subtitle">Accepted methods, promo codes, and loyalty points</div>
+        </div>
+      </div>
+
+      {% include "shop/faq_item.html" with id="p1" q="What payment methods does TrendMart accept?" a="TrendMart accepts all major credit and debit cards (Visa, Mastercard, Amex), PayPal, Apple Pay, and Google Pay. All transactions are secured by SSL encryption and processed through our PCI-DSS compliant payment gateway." %}
+      {% include "shop/faq_item.html" with id="p2" q="How do I apply a promo code?" a="In your cart, look for the 'Have a promo code?' input field. Enter your code and click 'Apply'. The discount will be applied immediately to your order total. Only one promo code can be used per order." %}
+      {% include "shop/faq_item.html" with id="p3" q="How do loyalty points work?" a="You earn 1 point per $1 spent. Points can be redeemed for discounts on future orders (100 points = $1 off). You also earn bonus points for writing reviews, referring friends, and completing your profile. View your balance on the Loyalty Dashboard." %}
+      {% include "shop/faq_item.html" with id="p4" q="Is it safe to save my card on TrendMart?" a="Yes. We use Stripe for all card processing — your full card number is never stored on TrendMart's servers. Stripe holds PCI Level 1 certification, the highest level of payment security." %}
+      {% include "shop/faq_item.html" with id="p5" q="Why was my payment declined?" a="Common reasons include incorrect card details, insufficient funds, or your bank flagging an unfamiliar transaction. Try a different card or contact your bank. If the issue persists, contact TrendMart support — we'll help identify the problem." %}
+    </section>
+
+    <!-- ─── SECTION: Selling ──────────────────────── -->
+    <section class="faq-section" data-cat="sellers" itemscope itemtype="https://schema.org/FAQPage">
+      <div class="faq-section-header">
+        <div class="faq-section-icon">🏪</div>
+        <div>
+          <div class="faq-section-title">Selling on TrendMart</div>
+          <div class="faq-section-subtitle">Become a verified retailer</div>
+        </div>
+      </div>
+
+      {% include "shop/faq_item.html" with id="v1" q="How do I become a seller on TrendMart?" a="Register for a free account and select 'Retailer' as your account type, or upgrade your existing account via Dashboard → Become a Retailer. Submit your business details for review. Our team approves retailer accounts within 1–2 business days." %}
+      {% include "shop/faq_item.html" with id="v2" q="What are the fees for selling on TrendMart?" a="The Free tier allows up to 10 active product listings at no cost. The Pro tier (unlimited listings + promoted placement + advanced analytics) is available for a monthly subscription. See our Pricing page for current rates." %}
+      {% include "shop/faq_item.html" with id="v3" q="How do I add products to my store?" a="From your Retailer Dashboard, click 'Add Product'. Fill in the details, upload images, and set your price and stock. You can also bulk-import products via CSV from Dashboard → Import Products. New products are reviewed by our admin team before going live." %}
+      {% include "shop/faq_item.html" with id="v4" q="How do I get paid as a seller?" a="Sales are accumulated in your retailer balance. Payouts are processed weekly via bank transfer or PayPal. You can view your earnings, top products, and revenue trends in the Retailer Analytics dashboard." %}
+    </section>
+
+    <!-- No results state -->
+    <div class="faq-no-results" id="faq-no-results" role="status" aria-live="polite">
+      <div style="font-size:3rem;margin-bottom:.75rem">🔍</div>
+      <strong style="font-size:1.1rem">No results found</strong>
+      <p style="margin-top:.5rem;color:var(--text-light)">Try a different keyword, or <button class="btn btn-sm btn-primary" onclick="document.getElementById('ai-chat-trigger').click()" style="vertical-align:middle;margin-left:.25rem">ask our AI</button></p>
+    </div>
+
+    <!-- ── AI CTA Banner ─────────────────────────── -->
+    <div class="faq-ai-banner">
+      <div class="faq-ai-orb" aria-hidden="true">🤖</div>
+      <h3>Still need help?</h3>
+      <p>Our AI shopping assistant knows everything about TrendMart — products, orders, returns, and more. Get an instant answer, 24 hours a day, 7 days a week.</p>
+      <div class="faq-ai-chips">
+        <button class="faq-ai-chip" onclick="sendAIChip('Track my order')">📦 Track my order</button>
+        <button class="faq-ai-chip" onclick="sendAIChip('How do I return an item?')">↩️ Return an item</button>
+        <button class="faq-ai-chip" onclick="sendAIChip('Show me today\'s best deals')">🔥 Best deals</button>
+        <button class="faq-ai-chip" onclick="sendAIChip('Recommend something for me')">💡 Recommend me</button>
+      </div>
+      <button class="faq-hero-cta" onclick="document.getElementById('ai-chat-trigger').click()">
+        💬 Open AI Chat →
+      </button>
+    </div>
+
+  </div><!-- /faq-content -->
+</div><!-- /faq-layout -->
+
+<!-- Include the FAQ item partial template helper -->
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* ═══════════════════════════════════════════════
+   FAQ PAGE INTERACTIONS
+═══════════════════════════════════════════════ */
+
+/* ── Accordion ────────────────────────────────── */
+document.querySelectorAll('.faq-question').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const item = btn.closest('.faq-item');
+    const wrap = item.querySelector('.faq-answer-wrap');
+    const isOpen = item.classList.contains('open');
+
+    /* Close others in same section */
+    item.closest('.faq-section')?.querySelectorAll('.faq-item.open').forEach(o => {
+      if (o !== item) {
+        o.classList.remove('open');
+        o.querySelector('.faq-question').setAttribute('aria-expanded','false');
+      }
+    });
+
+    item.classList.toggle('open', !isOpen);
+    btn.setAttribute('aria-expanded', String(!isOpen));
+
+    if (!isOpen) {
+      item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  });
+  btn.addEventListener('keydown', e => { if (e.key===' ') { e.preventDefault(); btn.click(); } });
+});
+
+/* ── Sidebar category filter ──────────────────── */
+const sideBtns = document.querySelectorAll('.faq-side-btn');
+const faqSections = document.querySelectorAll('.faq-section');
+
+sideBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    sideBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const cat = btn.dataset.cat;
+    faqSections.forEach(sec => {
+      sec.hidden = cat !== 'all' && sec.dataset.cat !== cat;
+    });
+    clearSearch();
+    document.getElementById('faq-no-results').classList.remove('visible');
+  });
+});
+
+/* ── Live search ──────────────────────────────── */
+const searchInput = document.getElementById('faq-search');
+const searchCount = document.getElementById('faq-search-count');
+const noResults = document.getElementById('faq-no-results');
+let searchTimeout;
+
+function clearSearch() {
+  searchInput.value = '';
+  searchCount.textContent = '';
+  document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('faq-hidden'));
+  noResults.classList.remove('visible');
+}
+
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    const q = searchInput.value.trim().toLowerCase();
+    if (!q) { clearSearch(); return; }
+
+    /* Show all sections during search */
+    sideBtns.forEach(b => b.classList.remove('active'));
+    sideBtns[0].classList.add('active');
+    faqSections.forEach(s => s.hidden = false);
+
+    let visible = 0;
+    document.querySelectorAll('.faq-item').forEach(item => {
+      const text = item.textContent.toLowerCase();
+      const match = text.includes(q);
+      item.classList.toggle('faq-hidden', !match);
+      if (match) visible++;
+    });
+
+    searchCount.textContent = visible > 0 ? `${visible} result${visible===1?'':'s'} found` : '';
+    noResults.classList.toggle('visible', visible === 0);
+  }, 180);
+});
+
+/* ── Popular chips ────────────────────────────── */
+document.querySelectorAll('.faq-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    searchInput.value = chip.dataset.q;
+    searchInput.dispatchEvent(new Event('input'));
+    document.getElementById('faq-content').scrollIntoView({ behavior: 'smooth' });
+  });
+});
+
+/* ── Animated stats counter ───────────────────── */
+function animateCounter(el) {
+  const target = parseInt(el.dataset.target, 10);
+  const suffix = el.dataset.suffix || '';
+  let current = 0;
+  const step = Math.ceil(target / 40);
+  const timer = setInterval(() => {
+    current = Math.min(current + step, target);
+    el.textContent = current + suffix;
+    if (current >= target) clearInterval(timer);
+  }, 35);
+}
+
+const statNums = document.querySelectorAll('.faq-stat-num[data-target]');
+const statObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) { animateCounter(e.target); statObs.unobserve(e.target); }
+  });
+}, { threshold: .5 });
+statNums.forEach(n => statObs.observe(n));
+
+/* ── AI chip shortcut ─────────────────────────── */
+function sendAIChip(text) {
+  const trigger = document.getElementById('ai-chat-trigger');
+  const input   = document.getElementById('ai-input');
+  trigger?.click();
+  if (input) {
+    input.value = text;
+    input.dispatchEvent(new Event('input'));
+    setTimeout(() => document.getElementById('ai-send')?.click(), 300);
+  }
+}
+
+/* ── Fade-in sections on scroll ──────────────── */
+const fadeObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.opacity = '1';
+      e.target.style.transform = 'translateY(0)';
+      fadeObs.unobserve(e.target);
+    }
+  });
+}, { threshold: .08 });
+
+document.querySelectorAll('.faq-section').forEach(s => {
+  s.style.opacity = '0';
+  s.style.transform = 'translateY(24px)';
+  s.style.transition = 'opacity .5s ease, transform .5s ease';
+  fadeObs.observe(s);
+});
+
+/* ── Hash link support ────────────────────────── */
+if (location.hash) {
+  const target = document.querySelector(location.hash + ' .faq-question');
+  if (target) setTimeout(() => { target.click(); target.scrollIntoView({ behavior:'smooth', block:'start' }); }, 400);
+}
+</script>
+{% endblock %}

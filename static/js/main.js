@@ -231,45 +231,171 @@ function initMobileNav() {
   }
 }
 
-// ── Search Autocomplete ─────────────────────────────────────
+// ── Instant Search Overlay ──────────────────────────────────
+// Full-screen search overlay that shows product cards, category chips,
+// brand chips, trending terms, and "did you mean?" corrections live as the
+// user types. Keyboard-navigable (↑↓ Enter Escape). No extra requests.
 function initSearchAutocomplete() {
-  const input = document.getElementById('search-input');
+  const input    = document.getElementById('search-input');
   const dropdown = document.getElementById('search-autocomplete');
   if (!input || !dropdown) return;
 
   let debounceTimer;
+  let currentFocusIndex = -1;
+  let allLinks = [];
+
+  // ── Build the overlay HTML from API response ─────────────
+  function renderOverlay(data, q) {
+    dropdown.innerHTML = '';
+    const { results = [], categories = [], brands = [], trending = [], did_you_mean = '' } = data;
+    const hasContent = results.length || categories.length || brands.length || trending.length || did_you_mean;
+    if (!hasContent) { dropdown.classList.remove('open'); return; }
+
+    let html = '';
+
+    // "Did you mean?" correction row
+    if (did_you_mean) {
+      html += `<div class="search-did-you-mean">Did you mean: <a href="/search/?q=${encodeURIComponent(did_you_mean)}" class="search-dym-link">${did_you_mean}</a>?</div>`;
+    }
+
+    // Trending searches (shown when query < 2 chars)
+    if (trending.length) {
+      html += `<div class="search-section-label">🔥 Trending searches</div><div class="search-chips">`;
+      trending.forEach(term => {
+        html += `<a href="/search/?q=${encodeURIComponent(term)}" class="search-chip">${term}</a>`;
+      });
+      html += `</div>`;
+    }
+
+    // Category chips
+    if (categories.length) {
+      html += `<div class="search-section-label">📂 Categories</div><div class="search-chips">`;
+      categories.forEach(c => {
+        html += `<a href="/category/${c.slug}/" class="search-chip search-chip-cat">${c.name}</a>`;
+      });
+      html += `</div>`;
+    }
+
+    // Brand chips
+    if (brands.length) {
+      html += `<div class="search-section-label">🏷️ Brands</div><div class="search-chips">`;
+      brands.forEach(b => {
+        html += `<a href="/search/?brand=${encodeURIComponent(b.slug)}" class="search-chip search-chip-brand">${b.name}</a>`;
+      });
+      html += `</div>`;
+    }
+
+    // Product results
+    if (results.length) {
+      html += `<div class="search-section-label">🛍️ Products</div>`;
+      results.forEach(p => {
+        const stars = '★'.repeat(Math.round(p.rating || 0)) + '☆'.repeat(5 - Math.round(p.rating || 0));
+        const saleBadge = p.on_sale ? `<span class="search-result-sale">SALE</span>` : '';
+        const originalPrice = p.original_price ? `<span class="search-result-original">$${p.original_price}</span>` : '';
+        html += `
+        <a href="/products/${p.slug}/" class="search-result-item" tabindex="0">
+          ${p.image ? `<img src="${p.image}" alt="${p.name}" class="search-result-img" loading="lazy">` : '<div class="search-result-img-placeholder"></div>'}
+          <div class="search-result-info">
+            <div class="search-result-name">${p.name}${saleBadge}</div>
+            <div class="search-result-meta">${p.category}${p.brand ? ' &middot; ' + p.brand : ''}</div>
+            <div class="search-result-stars" aria-hidden="true">${stars}</div>
+          </div>
+          <div class="search-result-price">${originalPrice}<span class="search-result-current">$${p.price}</span></div>
+        </a>`;
+      });
+
+      // "See all results" footer link
+      if (q) {
+        html += `<a href="/search/?q=${encodeURIComponent(q)}" class="search-see-all">See all results for "${q}" →</a>`;
+      }
+    }
+
+    dropdown.innerHTML = html;
+    dropdown.classList.add('open');
+
+    // Re-build the focusable link list for keyboard nav
+    allLinks = Array.from(dropdown.querySelectorAll('a'));
+    currentFocusIndex = -1;
+  }
+
+  // ── Focus/blur: show trending when input clicked empty ───
+  input.addEventListener('focus', () => {
+    if (!input.value.trim()) {
+      fetch('/search/autocomplete/?q=')
+        .then(r => r.json())
+        .then(data => renderOverlay(data, ''))
+        .catch(() => {});
+    }
+  });
+
+  // ── Live-as-you-type with 260ms debounce ─────────────────
   input.addEventListener('input', () => {
     clearTimeout(debounceTimer);
     const q = input.value.trim();
-    if (q.length < 2) { dropdown.classList.remove('open'); dropdown.innerHTML = ''; return; }
+    if (!q) {
+      fetch('/search/autocomplete/?q=')
+        .then(r => r.json())
+        .then(data => renderOverlay(data, ''))
+        .catch(() => {});
+      return;
+    }
     debounceTimer = setTimeout(() => {
       fetch(`/search/autocomplete/?q=${encodeURIComponent(q)}`)
         .then(r => r.json())
-        .then(data => {
-          dropdown.innerHTML = '';
-          if (!data.results.length) { dropdown.classList.remove('open'); return; }
-          data.results.forEach(p => {
-            const item = document.createElement('a');
-            item.href = `/products/${p.slug}/`;
-            item.className = 'autocomplete-item';
-            item.innerHTML = `${p.image ? `<img src="${p.image}" alt="${p.name}" loading="lazy">` : ''}<div><div class="autocomplete-item-name">${p.name}</div><div class="autocomplete-item-price">$${p.price} <span style="color:var(--text-light);font-size:.75rem;">&mdash; ${p.category}</span></div></div>`;
-            dropdown.appendChild(item);
-          });
-          dropdown.classList.add('open');
-        });
-    }, 280);
+        .then(data => renderOverlay(data, q))
+        .catch(() => dropdown.classList.remove('open'));
+    }, 260);
   });
 
+  // ── Keyboard navigation ───────────────────────────────────
   input.addEventListener('keydown', e => {
-    if (e.key === 'ArrowDown') { dropdown.querySelector('a')?.focus(); e.preventDefault(); }
-    if (e.key === 'Escape') { dropdown.classList.remove('open'); }
+    if (!dropdown.classList.contains('open')) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      currentFocusIndex = Math.min(currentFocusIndex + 1, allLinks.length - 1);
+      allLinks[currentFocusIndex]?.focus();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      currentFocusIndex = Math.max(currentFocusIndex - 1, -1);
+      if (currentFocusIndex === -1) input.focus();
+      else allLinks[currentFocusIndex]?.focus();
+    } else if (e.key === 'Escape') {
+      dropdown.classList.remove('open');
+      input.focus();
+    }
   });
-  document.addEventListener('click', e => { if (!input.contains(e.target) && !dropdown.contains(e.target)) dropdown.classList.remove('open'); });
 
+  // Arrow-key navigation within dropdown links
+  dropdown.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      currentFocusIndex = Math.min(currentFocusIndex + 1, allLinks.length - 1);
+      allLinks[currentFocusIndex]?.focus();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      currentFocusIndex = Math.max(currentFocusIndex - 1, -1);
+      if (currentFocusIndex === -1) input.focus();
+      else allLinks[currentFocusIndex]?.focus();
+    } else if (e.key === 'Escape') {
+      dropdown.classList.remove('open');
+      input.focus();
+    }
+  });
+
+  // ── Close when clicking outside ───────────────────────────
+  document.addEventListener('click', e => {
+    const searchWrap = document.getElementById('navbar-search');
+    if (searchWrap && !searchWrap.contains(e.target)) {
+      dropdown.classList.remove('open');
+    }
+  });
+
+  // ── Form submit guard ─────────────────────────────────────
   const searchForm = input.closest('form');
   if (searchForm) {
     searchForm.addEventListener('submit', e => {
       if (!input.value.trim()) { e.preventDefault(); input.focus(); }
+      dropdown.classList.remove('open');
     });
   }
 }
@@ -792,30 +918,119 @@ function initAIChat() {
     clearPendingImage();
 
     const typing = showTyping();
-    fetchPost('/ai/chat/', payload)
-      .then(r => r.json())
-      .then(data => {
+
+    // ── Streaming send via SSE (token-by-token like ChatGPT) ───────────────
+    // Falls back to regular JSON fetch if fetch/ReadableStream is unavailable.
+    function sendWithStream() {
+      const csrfToken = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+      fetch('/ai/stream/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify(payload),
+      })
+      .then(resp => {
+        if (!resp.ok || !resp.body) {
+          // Server returned an error or no readable body — fall back to JSON
+          return sendWithJson();
+        }
         typing.remove();
         setStatus('online');
-        // Typing animation for bot reply
-        const replyText = data.reply || "Sorry, I couldn't process that.";
-        const botMsg = appendMsgTyped(replyText, 'bot');
-        // Wait for typing animation then append rich cards
-        const cardDelay = Math.min(replyText.length * 12 + 300, 3500);
-        setTimeout(() => appendRichCards(botMsg, data.products), cardDelay);
-        // Update quick-action context
-        const lowerMsg = msgText.toLowerCase();
-        if (lowerMsg.match(/order|track|delivery|ship/)) updateQuickBtns('order');
-        else if (lowerMsg.match(/size|measurements|fit|eu|uk size/)) updateQuickBtns('size');
-        else if (lowerMsg.match(/product|show|find|search|recommend/)) updateQuickBtns('product');
-        else updateQuickBtns('default');
+
+        // Create the bot message bubble that will be filled token-by-token
+        const botMsg = document.createElement('div');
+        botMsg.className = 'ai-msg bot';
+        const bubble = document.createElement('div');
+        bubble.className = 'ai-bubble';
+        botMsg.appendChild(bubble);
+        messages.appendChild(botMsg);
+
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let fullText = '';
+
+        function readChunk() {
+          reader.read().then(({ done, value }) => {
+            if (done) {
+              // Stream complete — apply full markdown formatting
+              bubble.innerHTML = formatBotText(fullText);
+              messages.scrollTop = messages.scrollHeight;
+              // Fetch rich product cards via the regular endpoint
+              fetchPost('/ai/chat/', payload)
+                .then(r => r.json())
+                .then(d => appendRichCards(botMsg, d.products || []))
+                .catch(() => {});
+              // Update quick-action context
+              const lowerMsg = msgText.toLowerCase();
+              if (lowerMsg.match(/order|track|delivery|ship/)) updateQuickBtns('order');
+              else if (lowerMsg.match(/size|measurements|fit|eu|uk size/)) updateQuickBtns('size');
+              else if (lowerMsg.match(/product|show|find|search|recommend/)) updateQuickBtns('product');
+              else updateQuickBtns('default');
+              return;
+            }
+
+            // Parse each SSE line: "data: {...}\n\n"
+            const text = decoder.decode(value, { stream: true });
+            text.split('\n').forEach(line => {
+              if (!line.startsWith('data: ')) return;
+              const payload_str = line.slice(6).trim();
+              if (payload_str === '[DONE]') return;
+              try {
+                const chunk = JSON.parse(payload_str);
+                if (chunk.token) {
+                  fullText += chunk.token;
+                  // Show plain text while streaming, format when done
+                  bubble.textContent = fullText;
+                  messages.scrollTop = messages.scrollHeight;
+                }
+              } catch (_e) { /* skip malformed chunk */ }
+            });
+
+            readChunk(); // Read next chunk
+          }).catch(() => {
+            // Stream error mid-way — show what we have so far
+            if (fullText) bubble.innerHTML = formatBotText(fullText);
+            else appendMsg("Sorry, I'm having trouble connecting. Please try again! 🔄", 'bot');
+            setStatus('error');
+            setTimeout(() => setStatus('online'), 4000);
+          });
+        }
+        readChunk();
       })
-      .catch(() => {
-        typing.remove();
-        setStatus('error');
-        setTimeout(() => setStatus('online'), 4000);
-        appendMsg("Sorry, I'm having trouble connecting. Please try again! 🔄", 'bot');
-      });
+      .catch(() => sendWithJson()); // Network error — fall back to JSON
+    }
+
+    function sendWithJson() {
+      fetchPost('/ai/chat/', payload)
+        .then(r => r.json())
+        .then(data => {
+          typing.remove();
+          setStatus('online');
+          const replyText = data.reply || "Sorry, I couldn't process that.";
+          const botMsg = appendMsgTyped(replyText, 'bot');
+          const cardDelay = Math.min(replyText.length * 12 + 300, 3500);
+          setTimeout(() => appendRichCards(botMsg, data.products), cardDelay);
+          const lowerMsg = msgText.toLowerCase();
+          if (lowerMsg.match(/order|track|delivery|ship/)) updateQuickBtns('order');
+          else if (lowerMsg.match(/size|measurements|fit|eu|uk size/)) updateQuickBtns('size');
+          else if (lowerMsg.match(/product|show|find|search|recommend/)) updateQuickBtns('product');
+          else updateQuickBtns('default');
+        })
+        .catch(() => {
+          typing.remove();
+          setStatus('error');
+          setTimeout(() => setStatus('online'), 4000);
+          appendMsg("Sorry, I'm having trouble connecting. Please try again! 🔄", 'bot');
+        });
+    }
+
+    // Use streaming if ReadableStream is supported (all modern browsers).
+    // Image uploads bypass streaming and go directly through the JSON endpoint
+    // because the multimodal payload needs to be sent as a single request.
+    if (typeof ReadableStream !== 'undefined' && !pendingImage) {
+      sendWithStream();
+    } else {
+      sendWithJson();
+    }
   }
 
   sendBtn?.addEventListener('click', () => sendMessage(input?.value || ''));
@@ -943,32 +1158,169 @@ function initQuickView() {
     overlay.classList.add('open');
     document.body.style.overflow = 'hidden';
     if (title) title.textContent = productName || 'Product Details';
-    if (body) body.innerHTML = `<div class="quick-view-img"><div class="skeleton skeleton-img"></div></div><div><div class="skeleton skeleton-text medium" style="margin-bottom:8px"></div><div class="skeleton skeleton-text short" style="margin-bottom:16px"></div><div class="skeleton skeleton-text medium" style="height:80px"></div></div>`;
 
-    fetch(`/products/${slug}/?quickview=1`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-      .then(r => r.text())
-      .then(html => {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const imgEl = doc.querySelector('.product-detail-img img, .product-images img');
-        const priceEl = doc.querySelector('.price-current');
-        const brandEl = doc.querySelector('.product-detail-brand');
-        const descEl = doc.querySelector('.product-detail-description');
-        const ratingEl = doc.querySelector('.avg-rating-display');
-        const detailUrl = `/products/${slug}/`;
+    // Skeleton while loading
+    if (body) body.innerHTML = `
+      <div class="qv-img-col">
+        <div class="qv-main-img-wrap skeleton"></div>
+        <div class="qv-thumb-row" style="margin-top:.75rem;display:flex;gap:.5rem">
+          ${[1,2,3].map(() => '<div class="skeleton" style="width:60px;height:60px;border-radius:8px;flex-shrink:0"></div>').join('')}
+        </div>
+      </div>
+      <div class="qv-info-col">
+        <div class="skeleton" style="height:14px;width:80px;border-radius:4px;margin-bottom:10px"></div>
+        <div class="skeleton" style="height:28px;width:90%;border-radius:6px;margin-bottom:12px"></div>
+        <div class="skeleton" style="height:18px;width:40%;border-radius:4px;margin-bottom:10px"></div>
+        <div class="skeleton" style="height:36px;width:60%;border-radius:6px;margin-bottom:18px"></div>
+        <div class="skeleton" style="height:12px;width:100%;border-radius:4px;margin-bottom:8px"></div>
+        <div class="skeleton" style="height:12px;width:80%;border-radius:4px;margin-bottom:24px"></div>
+        <div class="skeleton" style="height:44px;width:100%;border-radius:10px"></div>
+      </div>`;
+
+    // Fetch rich JSON from the dedicated API endpoint
+    fetch(`/api/products/${slug}/quickview/`)
+      .then(r => r.json())
+      .then(p => {
+        if (title) title.textContent = p.name;
+
+        // Star rendering
+        const filled = Math.round(p.rating);
+        const stars = '★'.repeat(filled) + '☆'.repeat(5 - filled);
+
+        // Price block
+        const priceHtml = p.on_sale
+          ? `<span class="qv-price-current">$${p.sale_price}</span>
+             <span class="qv-price-original">$${p.price}</span>
+             <span class="qv-badge-sale">-${p.discount_pct}%</span>`
+          : `<span class="qv-price-current">$${p.price}</span>`;
+
+        // Stock badge
+        const stockBadge = p.in_stock
+          ? (p.stock <= 5
+              ? `<span class="qv-stock low">⚡ Only ${p.stock} left!</span>`
+              : `<span class="qv-stock ok">✓ In Stock</span>`)
+          : `<span class="qv-stock out">✗ Out of Stock</span>`;
+
+        // Thumbnail strip (main image + extra images)
+        const allImgs = [p.image, ...p.extra_images].filter(Boolean).slice(0, 4);
+        const thumbsHtml = allImgs.length > 1
+          ? `<div class="qv-thumb-row">${allImgs.map((src, i) =>
+              `<img src="${src}" class="qv-thumb${i === 0 ? ' active' : ''}" data-src="${src}" loading="lazy" alt="View ${i + 1}">`
+            ).join('')}</div>`
+          : '';
+
+        // Variants (size pills)
+        const sizeVariants = [...new Set(p.variants.filter(v => v.size).map(v => v.size))];
+        const sizeHtml = sizeVariants.length
+          ? `<div class="qv-label">Size</div>
+             <div class="qv-size-row">${sizeVariants.map(s =>
+               `<button class="qv-size-btn" data-size="${s}">${s}</button>`
+             ).join('')}</div>`
+          : (p.size ? `<div class="qv-label">Size</div><div class="qv-size-row"><button class="qv-size-btn active">${p.size}</button></div>` : '');
+
+        // Add to cart form
+        const atcHtml = p.in_stock
+          ? `<form class="qv-atc-form add-to-cart-form" action="/cart/add/" method="post">
+               <input type="hidden" name="csrfmiddlewaretoken" value="${p.csrf_token}">
+               <input type="hidden" name="product_id" value="${p.product_id}">
+               <div class="qv-qty-row">
+                 <button type="button" class="qv-qty-btn" data-delta="-1">−</button>
+                 <input type="number" name="quantity" class="qv-qty-input" value="1" min="1" max="${p.stock}">
+                 <button type="button" class="qv-qty-btn" data-delta="1">+</button>
+               </div>
+               <button type="submit" class="btn btn-primary btn-full qv-atc-btn">
+                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+                 Add to Cart
+               </button>
+             </form>`
+          : `<button class="btn btn-secondary btn-full" disabled>Out of Stock</button>`;
 
         if (body) body.innerHTML = `
-          <div class="quick-view-img">${imgEl ? `<img src="${imgEl.src}" alt="${imgEl.alt}" loading="lazy">` : '<div class="skeleton skeleton-img"></div>'}</div>
-          <div>
-            ${brandEl ? `<p style="color:var(--primary);font-weight:700;font-size:.8125rem;text-transform:uppercase;margin-bottom:.5rem">${brandEl.textContent.trim()}</p>` : ''}
-            ${priceEl ? `<p style="font-size:1.75rem;font-weight:900;color:var(--dark);margin-bottom:.75rem">${priceEl.textContent.trim()}</p>` : ''}
-            ${ratingEl ? `<p style="color:var(--secondary);margin-bottom:.75rem">★ ${ratingEl.textContent.trim()}</p>` : ''}
-            ${descEl ? `<p style="color:var(--text-light);font-size:.9375rem;line-height:1.7;margin-bottom:1.25rem">${descEl.textContent.trim().substring(0, 200)}${descEl.textContent.trim().length > 200 ? '…' : ''}</p>` : ''}
-            <a href="${detailUrl}" class="btn btn-primary" style="margin-bottom:.75rem;display:inline-block">View Full Details</a>
+          <div class="qv-img-col">
+            <div class="qv-main-img-wrap">
+              <img src="${p.image}" alt="${p.name}" class="qv-main-img" id="qv-main-img" loading="eager">
+              ${p.on_sale ? `<span class="qv-img-sale-badge">SALE</span>` : ''}
+            </div>
+            ${thumbsHtml}
+          </div>
+          <div class="qv-info-col">
+            ${p.brand ? `<div class="qv-brand"><a href="/search/?brand=${p.brand_slug}" style="color:var(--primary);font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;text-decoration:none">${p.brand}</a></div>` : ''}
+            <div class="qv-category" style="font-size:.8rem;color:var(--text-light);margin-bottom:.35rem">${p.category}</div>
+            <div class="qv-price-row">${priceHtml}</div>
+            <div class="qv-rating-row" aria-label="${p.rating} out of 5">
+              <span class="qv-stars" aria-hidden="true">${stars}</span>
+              <span class="qv-rating-num">${p.rating}</span>
+              <span class="qv-rating-cnt">(${p.rating_count} review${p.rating_count !== 1 ? 's' : ''})</span>
+            </div>
+            ${stockBadge}
+            ${p.short_description ? `<p class="qv-desc">${p.short_description}</p>` : (p.description ? `<p class="qv-desc">${p.description}${p.description.length >= 400 ? '…' : ''}</p>` : '')}
+            ${sizeHtml}
+            ${atcHtml}
+            <a href="${p.url}" class="qv-full-link">View full details & all reviews →</a>
           </div>`;
+
+        // Thumbnail click — swap main image
+        body.querySelectorAll('.qv-thumb').forEach(thumb => {
+          thumb.addEventListener('click', () => {
+            const mainImg = body.querySelector('#qv-main-img');
+            if (mainImg) mainImg.src = thumb.dataset.src;
+            body.querySelectorAll('.qv-thumb').forEach(t => t.classList.remove('active'));
+            thumb.classList.add('active');
+          });
+        });
+
+        // Size pill selection
+        body.querySelectorAll('.qv-size-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            body.querySelectorAll('.qv-size-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+          });
+        });
+
+        // Qty +/− buttons
+        body.querySelectorAll('.qv-qty-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const input = body.querySelector('.qv-qty-input');
+            if (!input) return;
+            const delta = parseInt(btn.dataset.delta, 10);
+            const newVal = Math.max(1, Math.min(p.stock, parseInt(input.value, 10) + delta));
+            input.value = newVal;
+          });
+        });
+
+        // AJAX ATC from quick view (override default form submit)
+        const atcForm = body.querySelector('.qv-atc-form');
+        if (atcForm) {
+          atcForm.addEventListener('submit', e => {
+            e.preventDefault();
+            const qty = body.querySelector('.qv-qty-input')?.value || '1';
+            fetchPost('/cart/add/', { product_id: p.product_id, quantity: parseInt(qty, 10) })
+              .then(r => r.json())
+              .then(d => {
+                if (d.success || d.cart_count !== undefined) {
+                  Toast.show(`${p.name} added to cart! 🛒`, 'success');
+                  document.querySelectorAll('.cart-count').forEach(el => { el.textContent = d.cart_count || ''; });
+                  const atcBtn = body.querySelector('.qv-atc-btn');
+                  if (atcBtn) {
+                    atcBtn.textContent = '✓ Added!';
+                    atcBtn.style.background = 'var(--success)';
+                    setTimeout(() => { atcBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg> Add to Cart'; atcBtn.style.background = ''; }, 2000);
+                  }
+                } else {
+                  Toast.show('Please log in to add items to cart.', 'error');
+                }
+              })
+              .catch(() => Toast.show('Could not add to cart. Please try again.', 'error'));
+          });
+        }
       })
       .catch(() => {
-        if (body) body.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:2rem"><p>Could not load product details.</p><a href="/products/${slug}/" class="btn btn-primary" style="margin-top:1rem">View Product</a></div>`;
+        if (body) body.innerHTML = `
+          <div style="grid-column:1/-1;text-align:center;padding:3rem">
+            <div style="font-size:2.5rem;margin-bottom:1rem">😕</div>
+            <p style="color:var(--text-light);margin-bottom:1.5rem">Could not load product details.</p>
+            <a href="/products/${slug}/" class="btn btn-primary">View Full Product Page</a>
+          </div>`;
       });
   }
 
@@ -1431,18 +1783,84 @@ function initImageZoom() {
 }
 
 // ── Sticky Add-to-Cart Bar ───────────────────────────────────────────────────
-// Appears when the main CTA scrolls out of view on product detail pages.
+// Slides up from the bottom when the main product form scrolls out of view.
+// Targets the main ATC form on product detail pages; falls back gracefully.
 function initStickyCartBar() {
-  const mainCta = document.getElementById('main-atc-btn');  // main add-to-cart button
-  const stickyBar = document.getElementById('sticky-cart-bar');
-  if (!mainCta || !stickyBar) return;
+  const stickyBar = document.getElementById('sticky-atc-bar');
+  if (!stickyBar) return;
+
+  // Observe the primary Add-to-Cart form — when it leaves the viewport,
+  // show the sticky bar so the user always has a way to add to cart.
+  const mainForm = document.querySelector('.product-actions');
+  if (!mainForm) return;
 
   const observer = new IntersectionObserver(entries => {
     entries.forEach(entry => {
-      stickyBar.classList.toggle('visible', !entry.isIntersecting);
+      const visible = !entry.isIntersecting;
+      stickyBar.classList.toggle('visible', visible);
+      stickyBar.setAttribute('aria-hidden', String(!visible));
     });
-  }, { threshold: 0, rootMargin: '0px 0px -60px 0px' });
-  observer.observe(mainCta);
+  }, { threshold: 0, rootMargin: '-80px 0px 0px 0px' });
+  observer.observe(mainForm);
+}
+
+// ── Product Image Carousel (thumbnail strip) ─────────────────────────────────
+// Clicking a thumbnail swaps the main product image.  Works alongside the
+// zoom lens so the zoomed view always shows the currently selected image.
+function initProductThumbCarousel() {
+  const strip = document.getElementById('product-thumb-strip');
+  const mainImg = document.getElementById('main-product-img');
+  const zoomWrap = document.getElementById('product-zoom-wrap');
+  if (!strip || !mainImg) return;
+
+  strip.querySelectorAll('.product-thumb').forEach(thumb => {
+    thumb.addEventListener('click', () => {
+      const fullSrc = thumb.dataset.full || thumb.src;
+      mainImg.src = fullSrc;
+
+      // Update zoom lens result panel image if present
+      const zoomResultImg = document.querySelector('.zoom-result-panel img');
+      if (zoomResultImg) zoomResultImg.src = fullSrc;
+
+      // Update active state on thumbnails
+      strip.querySelectorAll('.product-thumb').forEach(t => t.classList.remove('active'));
+      thumb.classList.add('active');
+    });
+  });
+}
+
+// ── Sale Countdown Timer ──────────────────────────────────────────────────────
+// Shows a live ticking countdown on sale products.  The end-time is stored in
+// localStorage keyed by product URL so it persists across page refreshes
+// (user sees consistent countdown, not a reset on every visit).
+// Duration: 48 hours from first visit.
+function initSaleCountdown() {
+  const el = document.getElementById('sale-countdown');
+  if (!el) return;
+  const hEl = document.getElementById('cd-h');
+  const mEl = document.getElementById('cd-m');
+  const sEl = document.getElementById('cd-s');
+  if (!hEl || !mEl || !sEl) return;
+
+  const key = 'tm_sale_end_' + window.location.pathname;
+  let endTime = parseInt(localStorage.getItem(key), 10);
+  if (!endTime || endTime < Date.now()) {
+    endTime = Date.now() + 48 * 60 * 60 * 1000;
+    localStorage.setItem(key, endTime);
+  }
+
+  function tick() {
+    const diff = endTime - Date.now();
+    if (diff <= 0) { el.style.display = 'none'; return; }
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    hEl.textContent = String(h).padStart(2, '0');
+    mEl.textContent = String(m).padStart(2, '0');
+    sEl.textContent = String(s).padStart(2, '0');
+  }
+  tick();
+  setInterval(tick, 1000);
 }
 
 // ── Password Strength Meter ──────────────────────────────────────────────────
@@ -1672,6 +2090,41 @@ function patchCartForMiniCart() {
   });
 }
 
+// ── AI Review Summarisation Button ───────────────────────────────────────────
+// Clicking "✨ AI Summary" POSTs to the backend which calls OpenRouter to
+// generate a 2-3 sentence consensus summary of the product's reviews.
+function initAIReviewSummary() {
+  const btn = document.getElementById('ai-summarise-btn');
+  if (!btn) return;
+  const panel = document.getElementById('ai-review-summary');
+  const textEl = document.getElementById('ai-summary-text');
+  const spinner = document.getElementById('ai-summary-spinner');
+
+  let loaded = false;
+  btn.addEventListener('click', () => {
+    if (loaded) {
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+      return;
+    }
+    const slug = btn.dataset.slug;
+    panel.style.display = 'block';
+    if (spinner) spinner.style.display = 'inline-block';
+    if (textEl) textEl.textContent = 'Generating AI summary…';
+
+    fetchPost(`/products/${slug}/summarise-reviews/`, {})
+      .then(r => r.json())
+      .then(data => {
+        if (spinner) spinner.style.display = 'none';
+        if (textEl) textEl.textContent = data.summary || 'Could not generate summary.';
+        loaded = true;
+      })
+      .catch(() => {
+        if (spinner) spinner.style.display = 'none';
+        if (textEl) textEl.textContent = 'Failed to load AI summary. Please try again.';
+      });
+  });
+}
+
 // ── Init all ────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   initDarkMode();
@@ -1700,6 +2153,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initMiniCart();
   initImageZoom();
   initStickyCartBar();
+  initProductThumbCarousel();
+  initSaleCountdown();
   initPasswordStrength();
   initCookieBanner();
   initNotificationBell();
@@ -1709,4 +2164,775 @@ document.addEventListener('DOMContentLoaded', () => {
   initFocusTrap();
   initSocialShare();
   patchCartForMiniCart();
+  initAIReviewSummary();
+  initProductComparison();
 });
+
+/* ═══════════════════════════════════════════════════════════
+   PRODUCT COMPARISON
+   - Up to 4 products stored in localStorage
+   - Floating bar slides up; Compare Now opens a side-by-side modal
+   ═══════════════════════════════════════════════════════════ */
+function initProductComparison() {
+  const MAX = 4;
+  const bar = document.getElementById('compare-bar');
+  const barItems = document.getElementById('compare-bar-items');
+  const barCount = document.getElementById('compare-bar-count');
+  const compareNowBtn = document.getElementById('compare-now-btn');
+  const compareClearBtn = document.getElementById('compare-clear-btn');
+  const modalOverlay = document.getElementById('compare-modal-overlay');
+  const modalClose = document.getElementById('compare-modal-close');
+  const tableHead = document.getElementById('compare-table-head');
+  const tableBody = document.getElementById('compare-table-body');
+  if (!bar) return;
+
+  // State stored in memory (survives page navigation via sessionStorage)
+  let compareList = JSON.parse(sessionStorage.getItem('tm-compare') || '[]');
+
+  function saveState() {
+    sessionStorage.setItem('tm-compare', JSON.stringify(compareList));
+  }
+
+  function renderBar() {
+    barItems.innerHTML = '';
+    if (compareList.length === 0) {
+      bar.classList.remove('visible');
+      bar.setAttribute('aria-hidden', 'true');
+      return;
+    }
+    bar.classList.add('visible');
+    bar.setAttribute('aria-hidden', 'false');
+    barCount.textContent = `${compareList.length}/${MAX} selected`;
+
+    compareList.forEach(p => {
+      const item = document.createElement('div');
+      item.className = 'compare-bar-item';
+      item.innerHTML = `
+        <span style="font-size:.8rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</span>
+        <button class="compare-bar-item-remove" data-slug="${p.slug}" aria-label="Remove ${p.name} from comparison">&times;</button>
+      `;
+      barItems.appendChild(item);
+    });
+
+    barItems.querySelectorAll('.compare-bar-item-remove').forEach(btn => {
+      btn.addEventListener('click', () => removeFromCompare(btn.dataset.slug));
+    });
+  }
+
+  function syncButtons() {
+    document.querySelectorAll('.compare-btn[data-compare]').forEach(btn => {
+      const isActive = compareList.some(p => p.slug === btn.dataset.compare);
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+  }
+
+  function addToCompare(slug, data) {
+    if (compareList.some(p => p.slug === slug)) {
+      removeFromCompare(slug);
+      return;
+    }
+    if (compareList.length >= MAX) {
+      Toast.show(`You can compare up to ${MAX} products at a time.`, 'error');
+      return;
+    }
+    compareList.push({ slug, ...data });
+    saveState();
+    renderBar();
+    syncButtons();
+  }
+
+  function removeFromCompare(slug) {
+    compareList = compareList.filter(p => p.slug !== slug);
+    saveState();
+    renderBar();
+    syncButtons();
+  }
+
+  function openModal() {
+    if (compareList.length < 2) {
+      Toast.show('Add at least 2 products to compare.', 'error');
+      return;
+    }
+
+    // Build header row
+    const ROWS = ['Image', 'Price', 'Brand', 'Category', 'Rating', 'Stock', 'Actions'];
+    tableHead.innerHTML = `<th>Feature</th>${compareList.map(p =>
+      `<th class="compare-product-col">
+        <img src="${p.img || ''}" alt="${p.name}" class="compare-product-img" onerror="this.style.display='none'">
+        <a href="${p.url}" class="compare-product-name" target="_blank">${p.name}</a>
+      </th>`
+    ).join('')}`;
+
+    // Build body rows
+    const rows = [
+      ['Price', p => `<strong style="color:var(--primary);font-size:1.1rem">$${p.price}</strong>`],
+      ['Brand', p => p.brand || '<span style="color:var(--text-light)">—</span>'],
+      ['Category', p => p.category || '<span style="color:var(--text-light)">—</span>'],
+      ['Rating', p => {
+        const filled = Math.round(parseFloat(p.rating || 0));
+        return `<span class="compare-stars">${'★'.repeat(filled)}${'☆'.repeat(5 - filled)}</span> <span style="font-size:.8rem;color:var(--text-light)">${p.rating || '0'}</span>`;
+      }],
+      ['Availability', p => p.stock === 'In Stock'
+        ? `<span style="color:var(--success);font-weight:700">✓ ${p.stock}</span>`
+        : `<span style="color:var(--error);font-weight:700">✗ ${p.stock}</span>`],
+      ['View', p => `<a href="${p.url}" class="btn btn-primary btn-sm" target="_blank">View Product</a>`],
+    ];
+
+    tableBody.innerHTML = rows.map(([label, render], i) =>
+      `<tr ${i % 2 === 0 ? 'class="compare-highlight"' : ''}>
+        <td>${label}</td>
+        ${compareList.map(p => `<td class="compare-product-col">${render(p)}</td>`).join('')}
+      </tr>`
+    ).join('');
+
+    modalOverlay.classList.add('open');
+    modalOverlay.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    modalClose.focus();
+  }
+
+  function closeModal() {
+    modalOverlay.classList.remove('open');
+    modalOverlay.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  // Wire up static buttons
+  compareNowBtn?.addEventListener('click', openModal);
+  compareClearBtn?.addEventListener('click', () => {
+    compareList = [];
+    saveState();
+    renderBar();
+    syncButtons();
+  });
+  modalClose?.addEventListener('click', closeModal);
+  modalOverlay?.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && modalOverlay?.classList.contains('open')) closeModal();
+  });
+
+  // Delegate compare button clicks (works for dynamically loaded cards)
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.compare-btn[data-compare]');
+    if (!btn) return;
+    e.preventDefault();
+    addToCompare(btn.dataset.compare, {
+      name: btn.dataset.compareName || btn.dataset.compare,
+      price: btn.dataset.comparePrice || '0',
+      brand: btn.dataset.compareBrand || '',
+      category: btn.dataset.compareCategory || '',
+      rating: btn.dataset.compareRating || '0',
+      stock: btn.dataset.compareStock || 'Unknown',
+      img: btn.dataset.compareImg || '',
+      url: btn.dataset.compareUrl || `/products/${btn.dataset.compare}/`,
+    });
+  });
+
+  // Restore state on page load
+  renderBar();
+  syncButtons();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ACCESSIBILITY HUB — radial bubble + options panel + voice AI
+   ═══════════════════════════════════════════════════════════ */
+function initAccessibilityHub() {
+  const hub = document.getElementById('a11y-hub');
+  const mainBtn = document.getElementById('a11y-main-btn');
+  const options = document.getElementById('a11y-options');
+  if (!hub || !mainBtn) return;
+
+  // ── Hub open/close (purple button fans sub-options) ───────────────────────
+  function toggleHub() {
+    const isOpen = hub.classList.toggle('open');
+    mainBtn.setAttribute('aria-expanded', isOpen);
+    options?.setAttribute('aria-hidden', !isOpen);
+    if (!isOpen) closePanelOverlay();
+  }
+
+  mainBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleHub(); });
+
+  document.addEventListener('click', e => {
+    if (!hub.contains(e.target)) {
+      hub.classList.remove('open');
+      mainBtn.setAttribute('aria-expanded', 'false');
+      options?.setAttribute('aria-hidden', 'true');
+      closePanelOverlay();
+    }
+  });
+
+  // ── Options Panel ─────────────────────────────────────────
+  const panelOverlay = document.getElementById('a11y-panel-overlay');
+
+  function openPanelOverlay() {
+    panelOverlay?.classList.add('open');
+    panelOverlay?.querySelector('.a11y-panel')?.focus?.();
+  }
+  function closePanelOverlay() {
+    panelOverlay?.classList.remove('open');
+  }
+  function togglePanelOverlay() {
+    panelOverlay?.classList.contains('open') ? closePanelOverlay() : openPanelOverlay();
+  }
+
+  panelOverlay?.addEventListener('click', e => {
+    if (e.target === panelOverlay) closePanelOverlay();
+  });
+
+  // Sub-option buttons in the radial menu
+  document.getElementById('a11y-voice-btn')?.addEventListener('click', openVoiceOverlay);
+  document.getElementById('a11y-text-btn')?.addEventListener('click', () => { togglePanelOverlay(); hub.classList.remove('open'); });
+  document.getElementById('a11y-color-btn')?.addEventListener('click', () => { togglePanelOverlay(); hub.classList.remove('open'); });
+  document.getElementById('a11y-contrast-btn')?.addEventListener('click', () => {
+    toggleHighContrast();
+    hub.classList.remove('open');
+    closePanelOverlay();
+  });
+  document.getElementById('a11y-font-btn')?.addEventListener('click', () => {
+    toggleDyslexiaFont();
+    hub.classList.remove('open');
+    closePanelOverlay();
+  });
+
+  // ── Text size ────────────────────────────────────────────
+  const TEXT_SIZES = ['smaller', 'normal', 'larger', 'largest'];
+  const SIZE_LABELS = { smaller: 'Smaller', normal: 'Normal', larger: 'Larger', largest: 'Largest' };
+  let textSizeIdx = parseInt(localStorage.getItem('tm-a11y-text') || '1', 10);
+  const sizeLabel = document.getElementById('a11y-size-label');
+
+  function applyTextSize() {
+    const size = TEXT_SIZES[textSizeIdx];
+    document.documentElement.setAttribute('data-a11y-text', size);
+    localStorage.setItem('tm-a11y-text', textSizeIdx);
+    if (sizeLabel) sizeLabel.textContent = SIZE_LABELS[size];
+  }
+  applyTextSize();
+
+  document.getElementById('a11y-larger')?.addEventListener('click', () => {
+    textSizeIdx = Math.min(textSizeIdx + 1, TEXT_SIZES.length - 1);
+    applyTextSize();
+  });
+  document.getElementById('a11y-smaller')?.addEventListener('click', () => {
+    textSizeIdx = Math.max(textSizeIdx - 1, 0);
+    applyTextSize();
+  });
+  document.getElementById('a11y-reset-size')?.addEventListener('click', () => {
+    textSizeIdx = 1; applyTextSize();
+  });
+
+  // ── Colorblind modes ──────────────────────────────────────
+  const savedColor = localStorage.getItem('tm-a11y-color') || 'normal';
+  function applyColorMode(mode) {
+    document.documentElement.setAttribute('data-a11y-color', mode);
+    localStorage.setItem('tm-a11y-color', mode);
+    document.querySelectorAll('[data-color-mode]').forEach(btn => {
+      const active = btn.dataset.colorMode === mode;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+  }
+  applyColorMode(savedColor);
+
+  document.querySelectorAll('[data-color-mode]').forEach(btn => {
+    btn.addEventListener('click', () => applyColorMode(btn.dataset.colorMode));
+  });
+
+  // ── High contrast ─────────────────────────────────────────
+  let contrastOn = localStorage.getItem('tm-a11y-contrast') === '1';
+  const contrastBtn = document.getElementById('a11y-contrast-toggle');
+  function applyContrast() {
+    document.documentElement.setAttribute('data-a11y-contrast', contrastOn ? 'high' : 'normal');
+    localStorage.setItem('tm-a11y-contrast', contrastOn ? '1' : '0');
+    contrastBtn?.classList.toggle('active', contrastOn);
+    contrastBtn?.setAttribute('aria-pressed', contrastOn ? 'true' : 'false');
+  }
+  function toggleHighContrast() { contrastOn = !contrastOn; applyContrast(); }
+  applyContrast();
+  contrastBtn?.addEventListener('click', toggleHighContrast);
+
+  // ── Dyslexia font ─────────────────────────────────────────
+  let dyslexicOn = localStorage.getItem('tm-a11y-font') === '1';
+  const fontBtn = document.getElementById('a11y-font-toggle');
+  function applyFont() {
+    document.documentElement.setAttribute('data-a11y-font', dyslexicOn ? 'dyslexic' : 'normal');
+    localStorage.setItem('tm-a11y-font', dyslexicOn ? '1' : '0');
+    fontBtn?.classList.toggle('active', dyslexicOn);
+    fontBtn?.setAttribute('aria-pressed', dyslexicOn ? 'true' : 'false');
+  }
+  function toggleDyslexiaFont() { dyslexicOn = !dyslexicOn; applyFont(); }
+  applyFont();
+  fontBtn?.addEventListener('click', toggleDyslexiaFont);
+
+  // ── Reduce motion ─────────────────────────────────────────
+  let reduceMotion = localStorage.getItem('tm-a11y-motion') === '1';
+  const motionBtn = document.getElementById('a11y-motion-toggle');
+  function applyMotion() {
+    if (reduceMotion) {
+      document.documentElement.style.setProperty('--transition', '0ms');
+    } else {
+      document.documentElement.style.removeProperty('--transition');
+    }
+    localStorage.setItem('tm-a11y-motion', reduceMotion ? '1' : '0');
+    motionBtn?.classList.toggle('active', reduceMotion);
+    motionBtn?.setAttribute('aria-pressed', reduceMotion ? 'true' : 'false');
+  }
+  applyMotion();
+  motionBtn?.addEventListener('click', () => { reduceMotion = !reduceMotion; applyMotion(); });
+
+  // ── Reset all ─────────────────────────────────────────────
+  document.getElementById('a11y-reset-all')?.addEventListener('click', () => {
+    textSizeIdx = 1; applyTextSize();
+    applyColorMode('normal');
+    contrastOn = false; applyContrast();
+    dyslexicOn = false; applyFont();
+    reduceMotion = false; applyMotion();
+    ['tm-a11y-text','tm-a11y-color','tm-a11y-contrast','tm-a11y-font','tm-a11y-motion']
+      .forEach(k => localStorage.removeItem(k));
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   VOICE AI ASSISTANT — Web Speech API + Text-to-Speech
+   + TrendMart action execution (search, add-to-cart, navigate)
+   ═══════════════════════════════════════════════════════════ */
+const voiceOverlay = document.getElementById('voice-overlay');
+const voiceStatus = document.getElementById('voice-status');
+const voiceTranscript = document.getElementById('voice-transcript');
+
+function openVoiceOverlay() {
+  if (!voiceOverlay) return;
+  voiceOverlay.classList.add('active');
+  voiceOverlay.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => speak('Hi! I\'m TrendMart\'s voice assistant. How can I help you today?'), 400);
+}
+
+function closeVoiceOverlay() {
+  stopListening();
+  window.speechSynthesis?.cancel();
+  voiceOverlay?.classList.remove('active', 'listening', 'thinking', 'speaking');
+  voiceOverlay?.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+}
+
+document.getElementById('voice-close-btn')?.addEventListener('click', closeVoiceOverlay);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && voiceOverlay?.classList.contains('active')) closeVoiceOverlay();
+});
+
+// Tap the orb to start listening
+voiceOverlay?.querySelector('.voice-orb')?.addEventListener('click', startListening);
+
+// ── Speech Synthesis (TTS) ────────────────────────────────
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.rate = 1.05; utt.pitch = 1; utt.volume = 1;
+
+  // Prefer a pleasant female voice if available
+  const voices = window.speechSynthesis.getVoices();
+  const preferred = voices.find(v =>
+    v.lang.startsWith('en') && (v.name.includes('Female') || v.name.includes('Google US') || v.name.includes('Samantha'))
+  ) || voices.find(v => v.lang.startsWith('en'));
+  if (preferred) utt.voice = preferred;
+
+  utt.onstart = () => {
+    voiceOverlay?.classList.remove('listening', 'thinking');
+    voiceOverlay?.classList.add('speaking');
+    if (voiceStatus) voiceStatus.textContent = 'Speaking…';
+  };
+  utt.onend = () => {
+    voiceOverlay?.classList.remove('speaking');
+    if (voiceStatus) voiceStatus.textContent = 'Tap the orb to speak';
+  };
+  if (voiceTranscript) {
+    voiceTranscript.textContent = text;
+    voiceTranscript.classList.add('response-text');
+  }
+  window.speechSynthesis.speak(utt);
+}
+
+// ── Speech Recognition (STT) ──────────────────────────────
+let recognition = null;
+let isListening = false;
+
+function startListening() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    speak('Sorry, your browser does not support voice input. Please try Chrome or Edge.');
+    return;
+  }
+  if (isListening) { stopListening(); return; }
+
+  recognition = new SR();
+  recognition.lang = 'en-US';
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = () => {
+    isListening = true;
+    voiceOverlay?.classList.add('listening');
+    voiceOverlay?.classList.remove('thinking', 'speaking');
+    if (voiceStatus) voiceStatus.textContent = 'Listening…';
+    if (voiceTranscript) { voiceTranscript.textContent = ''; voiceTranscript.classList.remove('response-text'); }
+  };
+
+  recognition.onresult = e => {
+    const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+    if (voiceTranscript) voiceTranscript.textContent = transcript;
+    if (e.results[0].isFinal) {
+      stopListening();
+      processVoiceCommand(transcript.trim().toLowerCase());
+    }
+  };
+
+  recognition.onerror = (e) => {
+    stopListening();
+    if (e.error === 'not-allowed') {
+      speak('Microphone access was denied. Please allow microphone access to use voice features.');
+    } else if (e.error !== 'no-speech') {
+      speak('I had trouble hearing you. Please tap the orb and try again.');
+    } else {
+      if (voiceStatus) voiceStatus.textContent = 'Tap the orb to speak';
+    }
+  };
+
+  recognition.onend = () => { isListening = false; };
+  recognition.start();
+}
+
+function stopListening() {
+  if (recognition) { try { recognition.stop(); } catch(e) {} recognition = null; }
+  isListening = false;
+  voiceOverlay?.classList.remove('listening');
+}
+
+// ── Action Execution Engine ───────────────────────────────
+let pendingAction = null;
+
+function processVoiceCommand(cmd) {
+  voiceOverlay?.classList.add('thinking');
+  if (voiceStatus) voiceStatus.textContent = 'Thinking…';
+
+  // Check for pending confirmation first
+  if (pendingAction) {
+    const yes = /\b(yes|yeah|yep|sure|ok|okay|add|do it|confirm|please)\b/.test(cmd);
+    const no = /\b(no|nope|cancel|nevermind|stop|don't)\b/.test(cmd);
+    if (yes) {
+      const action = pendingAction;
+      pendingAction = null;
+      executePendingAction(action);
+      return;
+    } else if (no) {
+      pendingAction = null;
+      voiceOverlay?.classList.remove('thinking');
+      speak('Okay, I\'ve cancelled that. What else can I help you with?');
+      return;
+    }
+  }
+
+  setTimeout(() => {
+    voiceOverlay?.classList.remove('thinking');
+    handleVoiceIntent(cmd);
+  }, 600);
+}
+
+function handleVoiceIntent(cmd) {
+  // ── Navigation ────────────────────────────────────────────
+  if (/\b(go to|open|show me|take me to)\b.*(home|homepage|main page)/.test(cmd)) {
+    speak('Taking you to the homepage!'); setTimeout(() => window.location.href = '/', 1500); return;
+  }
+  if (/\b(go to|open|show me)\b.*(cart|shopping cart|my cart)/.test(cmd)) {
+    speak('Opening your cart!'); setTimeout(() => window.location.href = '/cart/', 1500); return;
+  }
+  if (/\b(go to|open|show me)\b.*(wishlist|saved items)/.test(cmd)) {
+    speak('Opening your wishlist!'); setTimeout(() => window.location.href = '/wishlist/', 1500); return;
+  }
+  if (/\b(go to|open|show me)\b.*(orders|my orders|purchase history)/.test(cmd)) {
+    speak('Opening your orders!'); setTimeout(() => window.location.href = '/orders/', 1500); return;
+  }
+  if (/\b(go to|open|show me)\b.*(profile|account|my account)/.test(cmd)) {
+    speak('Opening your profile!'); setTimeout(() => window.location.href = '/profile/', 1500); return;
+  }
+  if (/\b(go to|open|show me)\b.*(dashboard)/.test(cmd)) {
+    speak('Opening your dashboard!'); setTimeout(() => window.location.href = '/dashboard/', 1500); return;
+  }
+  if (/\b(faq|help|how does|how do i|frequently asked)/.test(cmd)) {
+    speak('Opening our FAQ page!'); setTimeout(() => window.location.href = '/faq/', 1500); return;
+  }
+  if (/\b(login|log in|sign in)/.test(cmd)) {
+    speak('Opening the login page!'); setTimeout(() => window.location.href = '/login/', 1500); return;
+  }
+
+  // ── Search / Browse ───────────────────────────────────────
+  const searchMatch = cmd.match(/\b(?:search|find|look for|show me|i want|i need|browse)\b[\s,]*(?:some\s)?(?:me\s)?(.+)/);
+  if (searchMatch) {
+    const query = searchMatch[1].replace(/\b(please|thanks|thank you)\b/g, '').trim();
+    if (query.length > 1) {
+      speak(`Searching for "${query}" now!`);
+      setTimeout(() => window.location.href = `/products/?q=${encodeURIComponent(query)}`, 1800);
+      return;
+    }
+  }
+
+  // ── Add to cart (on product page) ────────────────────────
+  if (/\b(add to cart|add it to cart|add this to cart|buy this|purchase this|add to my cart)\b/.test(cmd)) {
+    const addBtn = document.querySelector('.add-to-cart-form button[type="submit"], #sticky-add-to-cart');
+    if (addBtn) {
+      pendingAction = { type: 'cart', btn: addBtn };
+      const productName = document.querySelector('.product-title, h1')?.textContent?.trim() || 'this item';
+      speak(`Should I add "${productName}" to your cart?`);
+    } else {
+      speak('I don\'t see a product to add here. Try navigating to a product page first.');
+    }
+    return;
+  }
+
+  // ── Wishlist ──────────────────────────────────────────────
+  if (/\b(add to wishlist|save this|save for later|add to my wishlist)\b/.test(cmd)) {
+    const wBtn = document.querySelector('.wishlist-toggle-btn');
+    if (wBtn) {
+      pendingAction = { type: 'wishlist', btn: wBtn };
+      const productName = document.querySelector('.product-title, h1')?.textContent?.trim() || 'this item';
+      speak(`Should I add "${productName}" to your wishlist?`);
+    } else {
+      speak('I can\'t find a wishlist button here. Try visiting a product page.');
+    }
+    return;
+  }
+
+  // ── Cart info ─────────────────────────────────────────────
+  if (/\b(what is|what's|whats|how many)\b.*(in my cart|in the cart|cart)\b/.test(cmd)) {
+    const badge = document.querySelector('.cart-badge');
+    const count = badge?.textContent?.trim() || '0';
+    speak(`You have ${count} item${count === '1' ? '' : 's'} in your cart.`);
+    return;
+  }
+
+  // ── Sale / deals ──────────────────────────────────────────
+  if (/\b(sale|deals|discount|offer|what's on sale|flash deal)\b/.test(cmd)) {
+    speak('Let me show you our latest deals!');
+    setTimeout(() => window.location.href = '/products/?sort=newest&sale=1', 1800);
+    return;
+  }
+
+  // ── Contact / support ─────────────────────────────────────
+  if (/\b(contact|support|help me|customer service|complaint)\b/.test(cmd)) {
+    speak('Opening our customer support page!');
+    setTimeout(() => window.location.href = '/contact-support/', 1500);
+    return;
+  }
+
+  // ── Stop / close ──────────────────────────────────────────
+  if (/\b(stop|close|exit|goodbye|bye|dismiss)\b/.test(cmd)) {
+    speak('Goodbye! Have a great shopping experience!');
+    setTimeout(closeVoiceOverlay, 1500);
+    return;
+  }
+
+  // ── Fallback — send to AI assistant ──────────────────────
+  fetchAIVoiceResponse(cmd);
+}
+
+function executePendingAction(action) {
+  if (action.type === 'cart') {
+    action.btn.closest('form')?.submit() || action.btn.click();
+    speak('Done! Item added to your cart. You can view it anytime by clicking the cart icon.');
+  } else if (action.type === 'wishlist') {
+    action.btn.click();
+    speak('Done! Item saved to your wishlist.');
+  }
+}
+
+function fetchAIVoiceResponse(query) {
+  voiceOverlay?.classList.add('thinking');
+  if (voiceStatus) voiceStatus.textContent = 'Asking TrendMart AI…';
+
+  fetch('/ai/chat/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+    body: JSON.stringify({ message: query, voice: true })
+  })
+  .then(r => r.json())
+  .then(data => {
+    voiceOverlay?.classList.remove('thinking');
+    const reply = data.reply || data.message || 'I\'m not sure about that. Try asking me something else!';
+    const cleanReply = reply.replace(/[*_#`\[\]()]/g, '').substring(0, 300);
+    speak(cleanReply);
+  })
+  .catch(() => {
+    voiceOverlay?.classList.remove('thinking');
+    speak('I had a connection issue. Please try again in a moment.');
+  });
+}
+
+// ── Video demo hover play/pause ───────────────────────────
+function initVideoHover() {
+  document.querySelectorAll('.product-card-image').forEach(card => {
+    const video = card.querySelector('.product-card-video');
+    if (!video) return;
+    card.addEventListener('mouseenter', () => { video.play().catch(() => {}); });
+    card.addEventListener('mouseleave', () => { video.pause(); video.currentTime = 0; });
+  });
+}
+
+// ── Infinite Scroll (replaces Load More button) ───────────
+function initInfiniteScroll() {
+  const btn = document.getElementById('load-more-btn');
+  const grid = document.getElementById('product-grid');
+  if (!btn || !grid) return;
+
+  let loading = false;
+
+  function loadNext() {
+    const nextPage = btn.dataset.nextPage;
+    const hasNext = btn.dataset.hasNext === 'true';
+    if (!hasNext || loading) return;
+
+    loading = true;
+    const url = new URL(window.location);
+    url.searchParams.set('page', nextPage);
+    url.searchParams.set('ajax', '1');
+
+    fetch(url.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(r => r.json())
+      .then(data => {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = data.html;
+        tmp.querySelectorAll('article.product-card').forEach(card => {
+          card.style.opacity = '0';
+          card.style.transform = 'translateY(16px)';
+          grid.appendChild(card);
+          requestAnimationFrame(() => {
+            card.style.transition = 'opacity .3s ease, transform .3s ease';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+          });
+        });
+        initVideoHover();
+
+        const wrap = document.getElementById('load-more-wrap');
+        if (data.has_next) {
+          btn.dataset.nextPage = data.next_page;
+          btn.dataset.hasNext = 'true';
+          const countEl = document.getElementById('load-more-count');
+          if (countEl) {
+            const loaded = grid.querySelectorAll('article.product-card').length;
+            countEl.textContent = `Showing ${loaded} of ${data.total_count} products`;
+          }
+        } else {
+          btn.dataset.hasNext = 'false';
+          if (wrap) wrap.innerHTML = `<p style="font-size:.875rem;color:var(--text-light);text-align:center">All ${data.total_count} products shown</p>`;
+        }
+        loading = false;
+      })
+      .catch(() => { loading = false; });
+  }
+
+  // IntersectionObserver — trigger when button scrolls into view
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) loadNext();
+    }, { rootMargin: '200px' });
+    observer.observe(btn);
+    btn.style.display = 'none';
+  } else {
+    btn.addEventListener('click', loadNext);
+  }
+}
+
+// Initialise everything on DOM ready
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof initProductComparison === 'function') initProductComparison();
+  initAccessibilityHub();
+  initVideoHover();
+  initInfiniteScroll();
+  initWebPush();
+});
+
+// ── Web Push Notifications ────────────────────────────────────────────────────
+// Registers the service worker, fetches the VAPID public key from the server,
+// and subscribes the browser to push notifications. Silently skips if the
+// browser doesn't support the Push API or if the user denies permission.
+async function initWebPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+  try {
+    const reg = await navigator.serviceWorker.ready;
+
+    // Fetch server's VAPID public key
+    const keyResp = await fetch('/push/vapid-key/');
+    const { publicKey } = await keyResp.json();
+    if (!publicKey) return;  // VAPID not configured on server
+
+    // Convert base64url key to Uint8Array
+    const vapidKey = urlBase64ToUint8Array(publicKey);
+
+    // Check if already subscribed
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      // Request permission and subscribe
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') return;
+
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: vapidKey,
+      });
+    }
+
+    // Send subscription to server
+    const csrf = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+    await fetch('/push/subscribe/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+      body: JSON.stringify(sub.toJSON()),
+    });
+  } catch (_e) {
+    // Silent fail — push is an enhancement, not a requirement
+  }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = window.atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+/* ── Mobile Filter Drawer ──────────────────────────────────────────── */
+function initMobileFilterDrawer() {
+  const toggleBtn = document.getElementById('mobileFilterToggle');
+  const closeBtn  = document.getElementById('mobileFilterClose');
+  const sidebar   = document.getElementById('filtersSidebar');
+  const overlay   = document.getElementById('mobileFilterOverlay');
+  if (!toggleBtn || !sidebar) return;
+
+  function openDrawer() {
+    sidebar.classList.add('mobile-open');
+    overlay?.classList.add('active');
+    overlay?.removeAttribute('aria-hidden');
+    toggleBtn.setAttribute('aria-expanded', 'true');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeDrawer() {
+    sidebar.classList.remove('mobile-open');
+    overlay?.classList.remove('active');
+    overlay?.setAttribute('aria-hidden', 'true');
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = '';
+  }
+
+  toggleBtn.addEventListener('click', openDrawer);
+  closeBtn?.addEventListener('click', closeDrawer);
+  overlay?.addEventListener('click', closeDrawer);
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && sidebar.classList.contains('mobile-open')) closeDrawer();
+  });
+}
+
+document.addEventListener('DOMContentLoaded', initMobileFilterDrawer);

@@ -4,6 +4,11 @@
     <a href="{{ product.get_absolute_url }}" aria-label="View {{ product.name }}">
       <img src="{% product_image product 400 300 %}" alt="{{ product.name }}" loading="lazy">
     </a>
+    {% if product.video_demo %}
+      <span class="product-card-video-badge">▶ Video</span>
+      <video class="product-card-video" src="{{ product.video_demo.url }}" muted loop playsinline preload="none"
+             aria-label="{{ product.name }} demo video"></video>
+    {% endif %}
     {% if product.is_on_sale %}
       <span class="product-badge badge-sale" aria-label="{{ product.get_discount_percentage }}% off">-{{ product.get_discount_percentage }}%</span>
     {% elif product.is_featured %}
@@ -12,6 +17,18 @@
     {% if not product.is_in_stock %}
       <span class="product-badge badge-out" style="top:auto;bottom:.75rem;left:.75rem">Out of Stock</span>
     {% endif %}
+    <button class="compare-btn" data-compare="{{ product.slug }}"
+            data-compare-name="{{ product.name }}"
+            data-compare-price="{% if product.is_on_sale %}{{ product.sale_price }}{% else %}{{ product.price }}{% endif %}"
+            data-compare-brand="{{ product.brand.name|default:'' }}"
+            data-compare-category="{{ product.category.name|default:'' }}"
+            data-compare-rating="{{ product.get_avg_rating }}"
+            data-compare-stock="{% if product.is_in_stock %}In Stock{% else %}Out of Stock{% endif %}"
+            data-compare-img="{% product_image product 200 200 %}"
+            data-compare-url="{{ product.get_absolute_url }}"
+            aria-label="Add {{ product.name }} to comparison" title="Compare">
+      ⇄
+    </button>
     <button class="product-card-quickview" data-quickview="{{ product.slug }}" data-product-name="{{ product.name }}" aria-label="Quick view {{ product.name }}">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
       Quick View

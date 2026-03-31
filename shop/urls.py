@@ -50,6 +50,7 @@ urlpatterns = [
     path('review/<int:review_id>/helpful/', views.mark_review_helpful, name='mark_review_helpful'),
 
     path('ai/chat/', views.ai_assistant, name='ai_assistant'),
+    path('ai/stream/', views.ai_stream, name='ai_stream'),
     path('ai/search/', views.ai_search, name='ai_search'),
 
     path('admin-panel/', views.admin_dashboard, name='admin_dashboard'),
@@ -102,4 +103,31 @@ urlpatterns = [
     path('surprise/', views.surprise_me, name='surprise_me'),
 
     path('account/delete/', views.delete_account, name='delete_account'),
+    path('account/2fa/setup/', views.setup_2fa, name='setup_2fa'),
+    path('account/2fa/disable/', views.disable_2fa, name='disable_2fa'),
+    path('account/2fa/verify/', views.verify_2fa, name='verify_2fa'),
+
+    path('faq/', views.faq_view, name='faq'),
+    path('settings/dark-mode/', views.toggle_dark_mode, name='toggle_dark_mode'),
+
+    # Health check — used by load balancers, Docker, Kubernetes, and hosting
+    # platforms (Render, Railway, Heroku) to verify the app is alive.
+    # Returns JSON {"status": "ok"} with HTTP 200, or {"status": "error"} with 503.
+    path('health/', views.health_check, name='health_check'),
+
+    # AI Review Summarisation — generates a 2-3 sentence AI summary of a product's reviews
+    path('products/<slug:slug>/summarise-reviews/', views.ai_summarise_reviews, name='ai_summarise_reviews'),
+
+    # Quick View JSON API — returns rich product data for the quick-view modal
+    path('api/products/<slug:slug>/quickview/', views.product_quickview_api, name='product_quickview_api'),
+
+    # Static policy & support pages
+    path('shipping-policy/', views.shipping_policy, name='shipping_policy'),
+    path('returns-refunds/', views.returns_refunds, name='returns_refunds'),
+    path('contact-support/', views.contact_support, name='contact_support'),
+
+    # Web Push Notifications
+    path('push/vapid-key/', views.push_vapid_public_key, name='push_vapid_key'),
+    path('push/subscribe/', views.push_subscribe, name='push_subscribe'),
+    path('push/unsubscribe/', views.push_unsubscribe, name='push_unsubscribe'),
 ]

@@ -43,14 +43,14 @@
           {% endif %}
         </div>
         <div class="cart-item-controls">
-          <div class="qty-control">
-            <button type="button" class="qty-btn" aria-label="Decrease quantity"
-                    onclick="updateCartItem({{ item.id }}, {{ item.quantity|add:'-1' }})">−</button>
-            <input type="number" class="qty-input" value="{{ item.quantity }}" min="1" max="{{ item.product.stock }}"
-                   aria-label="Quantity for {{ item.product.name }}"
-                   onchange="updateCartItem({{ item.id }}, this.value)">
-            <button type="button" class="qty-btn" aria-label="Increase quantity"
-                    onclick="updateCartItem({{ item.id }}, {{ item.quantity|add:'1' }})">+</button>
+          <div class="qty-control" data-item-id="{{ item.id }}">
+            <button type="button" class="qty-btn cart-qty-btn" data-delta="-1"
+                    aria-label="Decrease quantity">−</button>
+            <input type="number" class="qty-input cart-qty-input" value="{{ item.quantity }}"
+                   min="1" max="{{ item.product.stock }}"
+                   aria-label="Quantity for {{ item.product.name }}">
+            <button type="button" class="qty-btn cart-qty-btn" data-delta="1"
+                    aria-label="Increase quantity">+</button>
           </div>
           <div class="cart-item-subtotal" id="subtotal-{{ item.id }}">${{ item.get_subtotal }}</div>
           <form method="post" action="{% url 'shop:remove_from_cart' item.id %}" style="display:inline">
@@ -80,6 +80,28 @@
       <div class="summary-line" style="font-weight:800;font-size:1.125rem;padding-top:.75rem;border-top:2px solid var(--border);margin-top:.5rem">
         <span>Total</span>
         <span id="cart-grand-total" style="color:var(--primary)">${{ cart.get_total }}</span>
+      </div>
+
+      <!-- Promo Code -->
+      <div style="margin-top:1.25rem;border-top:1px solid var(--border);padding-top:1rem">
+        <label for="promo-code-input" style="font-size:.875rem;font-weight:700;color:var(--dark);display:block;margin-bottom:.5rem">
+          🏷️ Promo Code
+        </label>
+        {% if promo_discount %}
+        <div class="alert alert-success" style="padding:.5rem .875rem;font-size:.85rem;margin-bottom:.5rem" role="status">
+          ✅ Code <strong>{{ applied_promo }}</strong> applied — {{ promo_discount }}% off
+        </div>
+        {% endif %}
+        <div style="display:flex;gap:.5rem">
+          <input type="text" id="promo-code-input" placeholder="Enter promo code"
+                 class="form-control" style="flex:1;font-size:.875rem"
+                 aria-label="Promo code">
+          <button type="button" onclick="applyPromoCode()"
+                  class="btn btn-ghost" style="white-space:nowrap;font-size:.875rem"
+                  aria-label="Apply promo code">Apply</button>
+        </div>
+        <div id="promo-msg" role="alert" aria-live="polite"
+             style="font-size:.8rem;margin-top:.375rem;display:none"></div>
       </div>
 
       {% if user.is_authenticated %}
@@ -115,24 +137,112 @@
 
 {% block extra_js %}
 <script>
-function updateCartItem(itemId, qty) {
-  qty = parseInt(qty, 10);
-  if (qty < 1) { return; }
-  fetch(`/cart/update/${itemId}/`, {
+/* ── Cart quantity controls ────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', function () {
+
+  function sendUpdate(itemId, qty, inputEl) {
+    qty = parseInt(qty, 10);
+    if (isNaN(qty) || qty < 0) return;
+    fetch(`/cart/update/${itemId}/`, {
+      method: 'POST',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRFToken': getCookie('csrftoken'),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ quantity: qty }),
+    }).then(r => r.json()).then(data => {
+      if (data.success) {
+        /* Update quantity input to confirmed server value */
+        if (inputEl) inputEl.value = qty;
+        /* Update line subtotal */
+        const subEl = document.getElementById(`subtotal-${itemId}`);
+        if (subEl) subEl.textContent = `$${parseFloat(data.subtotal).toFixed(2)}`;
+        /* Update cart totals */
+        const totalEl = document.getElementById('cart-total');
+        const grandEl = document.getElementById('cart-grand-total');
+        if (totalEl) totalEl.textContent = `$${parseFloat(data.cart_total).toFixed(2)}`;
+        if (grandEl) grandEl.textContent = `$${parseFloat(data.cart_total).toFixed(2)}`;
+        /* Update badge */
+        document.querySelectorAll('.cart-badge').forEach(b => {
+          b.textContent = data.cart_count;
+          b.style.display = data.cart_count > 0 ? 'flex' : 'none';
+        });
+        /* Remove row if qty dropped to 0 */
+        if (qty === 0) {
+          const row = document.getElementById(`cart-item-${itemId}`);
+          if (row) row.remove();
+          if (data.cart_count === 0) location.reload();
+        }
+      }
+    });
+  }
+
+  document.querySelectorAll('.qty-control[data-item-id]').forEach(wrapper => {
+    const itemId = wrapper.dataset.itemId;
+    const input  = wrapper.querySelector('.cart-qty-input');
+    const max    = parseInt(input?.max || '9999', 10);
+
+    wrapper.querySelectorAll('.cart-qty-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        let current = parseInt(input.value, 10) || 1;
+        const delta = parseInt(btn.dataset.delta, 10);
+        let next = current + delta;
+        if (next < 1) next = 1;
+        if (next > max) next = max;
+        /* Optimistically update the displayed number immediately */
+        input.value = next;
+        sendUpdate(itemId, next, input);
+      });
+    });
+
+    input?.addEventListener('change', () => {
+      let v = parseInt(input.value, 10) || 1;
+      if (v < 1) v = 1;
+      if (v > max) v = max;
+      input.value = v;
+      sendUpdate(itemId, v, input);
+    });
+  });
+});
+
+/* ── Promo code AJAX submission ────────────────────────────────────────────── */
+function applyPromoCode() {
+  const code = document.getElementById('promo-code-input').value.trim();
+  const msgEl = document.getElementById('promo-msg');
+  if (!code) {
+    msgEl.textContent = 'Please enter a promo code.';
+    msgEl.style.color = 'var(--error)';
+    msgEl.style.display = 'block';
+    return;
+  }
+  fetch('{% url "shop:apply_promo_code" %}', {
     method: 'POST',
-    headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken'), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ quantity: qty }),
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-CSRFToken': getCookie('csrftoken'),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ code }),
   }).then(r => r.json()).then(data => {
+    msgEl.style.display = 'block';
     if (data.success) {
-      const subEl = document.getElementById(`subtotal-${itemId}`);
-      if (subEl) subEl.textContent = `$${data.subtotal}`;
-      const totalEl = document.getElementById('cart-total');
-      const grandEl = document.getElementById('cart-grand-total');
-      if (totalEl) totalEl.textContent = `$${data.cart_total}`;
-      if (grandEl) grandEl.textContent = `$${data.cart_total}`;
-      const badge = document.querySelector('.cart-badge');
-      if (badge) { badge.textContent = data.cart_count; badge.style.display = data.cart_count ? '' : 'none'; }
+      msgEl.textContent = `✅ Code "${code}" applied — ${data.discount}% off!`;
+      msgEl.style.color = 'var(--success)';
+      if (data.new_total !== undefined) {
+        const totalEl = document.getElementById('cart-total');
+        const grandEl = document.getElementById('cart-grand-total');
+        if (totalEl) totalEl.textContent = `$${data.new_total}`;
+        if (grandEl) grandEl.textContent = `$${data.new_total}`;
+      }
+    } else {
+      msgEl.textContent = data.error || 'Invalid promo code.';
+      msgEl.style.color = 'var(--error)';
     }
+  }).catch(() => {
+    msgEl.textContent = 'Could not apply code. Please try again.';
+    msgEl.style.color = 'var(--error)';
+    msgEl.style.display = 'block';
   });
 }
 </script>

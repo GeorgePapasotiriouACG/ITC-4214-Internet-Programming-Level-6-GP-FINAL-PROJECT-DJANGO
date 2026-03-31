@@ -1,0 +1,37 @@
+{% extends "shop/base.html" %}
+{% block title %}Two-Factor Verification — TrendMart{% endblock %}
+{% block content %}
+<div style="max-width:420px;margin:5rem auto;padding:0 1rem">
+  <div class="card" style="padding:2.5rem;border-radius:var(--radius-lg);box-shadow:0 8px 32px rgba(0,0,0,.12);text-align:center">
+
+    <div style="width:64px;height:64px;background:linear-gradient(135deg,#7c3aed,#a855f7);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+    </div>
+
+    <h1 style="font-size:1.4rem;font-weight:800;margin:0 0 .5rem">Two-Factor Verification</h1>
+    <p style="color:var(--text-light);font-size:.9rem;margin-bottom:2rem">Enter the 6-digit code from your authenticator app to complete sign-in.</p>
+
+    {% if messages %}
+      {% for msg in messages %}
+        <div style="margin-bottom:1rem;padding:.75rem 1rem;border-radius:var(--radius-sm);background:rgba(239,68,68,.1);color:var(--error);font-weight:600;font-size:.9rem">{{ msg }}</div>
+      {% endfor %}
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      <input type="text" name="otp_code" class="form-control"
+             placeholder="000000" maxlength="6" pattern="[0-9]{6}" autocomplete="one-time-code"
+             style="text-align:center;font-size:2rem;letter-spacing:.75rem;font-weight:800;font-family:monospace;margin-bottom:1.25rem"
+             required autofocus>
+      <button type="submit" class="btn btn-primary" style="width:100%;padding:.875rem;font-size:1rem">Verify</button>
+    </form>
+
+    <p style="margin-top:1.5rem;font-size:.8rem;color:var(--text-light)">
+      Lost access to your app?
+      <a href="{% url 'shop:login' %}" style="color:var(--primary)">Back to login</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

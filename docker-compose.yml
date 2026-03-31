@@ -1,0 +1,133 @@
+# =============================================================================
+# Author:       George Papasotiriou
+# Date Created: March 28, 2026
+# Project:      TrendMart E-Commerce Platform
+# File:         docker-compose.yml
+# Description:  Local development and production-parity environment.
+#               Services: Django (web), PostgreSQL (db), Redis (cache)
+#
+# Quick start:
+#   1. cp .env.example .env  (then edit .env with your values)
+#   2. docker compose up --build
+#   3. docker compose exec web python manage.py migrate
+#   4. docker compose exec web python manage.py createsuperuser
+#   5. Visit http://localhost:8000
+#
+# Production use: set DEBUG=False in .env and ensure DATABASE_URL and
+#                 REDIS_URL point to managed services (not docker services).
+# =============================================================================
+
+services:
+
+  # ── PostgreSQL Database ──────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: trendmart_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: trendmart
+      POSTGRES_USER: trendmart
+      POSTGRES_PASSWORD: trendmartpass
+    volumes:
+      # Persist database data across container restarts
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      # Expose PostgreSQL for direct access with a DB client (dev only)
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trendmart"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis Cache & Rate-Limiter ───────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: trendmart_redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Django Web Application ───────────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trendmart_web
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Override DB and Redis URLs to point to docker services
+      DATABASE_URL: postgresql://trendmart:trendmartpass@db:5432/trendmart
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      # Persist uploaded media files (product images etc.)
+      - media_data:/app/media
+      # Mount logs directory for easy inspection
+      - ./logs:/app/logs
+      # Mount source code for hot-reload in development
+      # Comment out in production to use the baked-in code
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Run migrations automatically on startup
+    command: >
+      sh -c "
+        python manage.py migrate --noinput &&
+        python manage.py collectstatic --noinput &&
+        gunicorn eshop.wsgi:application --config gunicorn.conf.py
+      "
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+  # ── Trend Score Cron (optional) ───────────────────────────────────────────────
+  # Runs the update_trends management command every hour to keep trend scores fresh.
+  # Remove this service if you don't need real-time trend scoring.
+  cron:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trendmart_cron
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://trendmart:trendmartpass@db:5432/trendmart
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - media_data:/app/media
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    # Simple loop: run update_trends every 3600 seconds
+    command: >
+      sh -c "
+        while true; do
+          python manage.py update_trends;
+          sleep 3600;
+        done
+      "
+
+# ── Named volumes (persist data across docker compose down/up) ────────────────
+volumes:
+  postgres_data:
+    driver: local
+  media_data:
+    driver: local

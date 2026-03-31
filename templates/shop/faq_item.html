@@ -1,0 +1,14 @@
+<div class="faq-item" itemscope itemtype="https://schema.org/Question">
+  <button class="faq-question" aria-expanded="false" aria-controls="faq-ans-{{ id }}" itemprop="name">
+    {{ q }}
+    <span class="faq-chevron" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </span>
+  </button>
+  <div class="faq-answer-wrap">
+    <div class="faq-answer" id="faq-ans-{{ id }}" role="region"
+         itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
+      <div itemprop="text">{{ a }}</div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,64 @@
+# =============================================================================
+# Author:       George Papasotiriou
+# Date Created: March 28, 2026
+# Project:      TrendMart E-Commerce Platform
+# File:         .dockerignore
+# Description:  Files excluded from the Docker build context to keep the
+#               image small and prevent secrets from being baked in.
+# =============================================================================
+
+# Git history — not needed inside the image
+.git
+.gitignore
+
+# Python cache files
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments (dependencies come from the builder stage)
+venv/
+env/
+.venv/
+
+# The .env file — secrets are passed via env_file or platform env vars
+.env
+
+# SQLite dev database — production uses PostgreSQL
+*.sqlite3
+db.sqlite3
+
+# Log files
+logs/
+*.log
+
+# Test and coverage artifacts
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Development and IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS metadata
+.DS_Store
+
+# Node (if any frontend tooling is added later)
+node_modules/
+
+# Static files collected at build time — don't pollute the build context
+staticfiles/
+
+# Media uploads (mounted as a volume at runtime)
+media/
+
+# Seed scripts (dev only)
+seed_data.py
+seed_extended.py
+seed_variants.py

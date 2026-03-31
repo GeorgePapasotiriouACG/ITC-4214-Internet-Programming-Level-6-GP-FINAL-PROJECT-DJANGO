@@ -34,7 +34,7 @@ from .models import (
     SearchSynonym, SearchLog, ProductQuestion, ProductAnswer,
     UserAddress, WishlistShareToken, StockNotification,
     NewsletterSubscriber, AuditLog, ReviewReply, Collection,
-    Referral, ABTest, ProductTrendScore,
+    Referral, ABTest, ProductTrendScore, FAQ, FAQCategory,
 )
 # Import all forms from the shop app
 from .forms import (
@@ -146,12 +146,20 @@ def track_view(request, product):
 # ─── Home & Catalogue ─────────────────────────────────────────────────────────
 
 def home(request):
-    featured = Product.objects.filter(is_active=True, is_approved=True, is_featured=True)[:8]
-    new_arrivals = Product.objects.filter(is_active=True, is_approved=True).order_by('-created_at')[:8]
-    root_categories = Category.objects.filter(parent=None, is_active=True)
+    featured = Product.objects.filter(
+        is_active=True, is_approved=True, is_featured=True
+    ).select_related('brand', 'category')[:8]
+    new_arrivals = Product.objects.filter(
+        is_active=True, is_approved=True
+    ).select_related('brand', 'category').order_by('-created_at')[:8]
+    root_categories = Category.objects.filter(
+        parent=None, is_active=True
+    ).prefetch_related('children')
     best_sellers = Product.objects.filter(
         is_active=True, is_approved=True
-    ).annotate(order_count=Count('orderitem')).order_by('-order_count')[:8]
+    ).select_related('brand', 'category').annotate(
+        order_count=Count('orderitem')
+    ).order_by('-order_count')[:8]
     recommendations = []
     if request.user.is_authenticated:
         recommendations = get_recommendations(request.user, limit=6)
@@ -166,7 +174,9 @@ def home(request):
 
 
 def product_list(request):
-    products = Product.objects.filter(is_active=True, is_approved=True).select_related('brand', 'category')
+    products = Product.objects.filter(
+        is_active=True, is_approved=True
+    ).select_related('brand', 'category').prefetch_related('ratings')
     categories = Category.objects.filter(is_active=True)
     brands = Brand.objects.filter(is_active=True)
 
@@ -233,6 +243,23 @@ def product_list(request):
     paginator = Paginator(products, 12)
     page = paginator.get_page(request.GET.get('page', 1))
 
+    # AJAX "Load More" — return only the product card HTML fragments
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.GET.get('ajax') == '1':
+        from django.template.loader import render_to_string
+        cards_html = ''
+        for product in page.object_list:
+            cards_html += render_to_string(
+                'shop/includes/product_card.html',
+                {'product': product, 'request': request},
+                request=request,
+            )
+        return JsonResponse({
+            'html': cards_html,
+            'has_next': page.has_next(),
+            'next_page': page.next_page_number() if page.has_next() else None,
+            'total_count': paginator.count,
+        })
+
     context = {
         'products': page,
         'categories': categories,
@@ -265,9 +292,11 @@ def product_detail(request, slug):
 
     related = Product.objects.filter(
         category=product.category, is_active=True, is_approved=True
-    ).exclude(id=product.id)[:4]
+    ).exclude(id=product.id).select_related('brand', 'category')[:4]
 
-    tag_recs = Product.objects.filter(is_active=True, is_approved=True).exclude(id=product.id)
+    tag_recs = Product.objects.filter(
+        is_active=True, is_approved=True
+    ).exclude(id=product.id).select_related('brand', 'category')
     if product.tags:
         tag_q = Q()
         for tag in product.get_tags_list():
@@ -298,6 +327,53 @@ def product_detail(request, slug):
     from .templatetags.shop_tags import product_image
     product_img_url = product_image(product, 600, 600)
 
+    # ── Q&A: load approved questions with their answers ──────────────────────
+    questions = product.questions.filter(
+        is_approved=True
+    ).prefetch_related('answers__user').select_related('user')
+
+    # ── Frequently bought together ────────────────────────────────────────────
+    # Find products that appeared in the same orders as this product.
+    # Uses a subquery to get order IDs containing this product, then finds
+    # other products in those orders, ranked by co-occurrence count.
+    co_purchase_ids = (
+        OrderItem.objects
+        .filter(product=product)
+        .values_list('order_id', flat=True)
+    )
+    freq_bought = (
+        Product.objects
+        .filter(
+            is_active=True, is_approved=True,
+            order_items__order_id__in=co_purchase_ids,
+        )
+        .exclude(id=product.id)
+        .annotate(co_count=Count('id'))
+        .order_by('-co_count')[:3]
+    ) if co_purchase_ids.exists() else Product.objects.none()
+
+    # ── Reviews ordered by helpfulness (most helpful first) ──────────────────
+    ratings = product.ratings.select_related('user').order_by('-helpful_count', '-created_at')
+
+    # Recalculate distribution with sorted ratings
+    rating_dist = {i: 0 for i in range(1, 6)}
+    for r in ratings:
+        rating_dist[r.rating] += 1
+
+    # ── Collaborative filtering ("Customers who bought this also bought") ─────
+    from django.core.cache import cache
+    collab_prods = cache.get(f'collab_recs_{product.id}')
+    if collab_prods is None and product.collab_recs:
+        collab_prods = [int(i) for i in product.collab_recs.split(',') if i.strip().isdigit()]
+    if collab_prods:
+        collab_also_bought = (
+            Product.objects
+            .filter(id__in=collab_prods, is_active=True, is_approved=True)
+            .select_related('brand', 'category')[:4]
+        )
+    else:
+        collab_also_bought = Product.objects.none()
+
     context = {
         'product': product,
         'related': related,
@@ -309,6 +385,9 @@ def product_detail(request, slug):
         'rating_dist_items': sorted(rating_dist.items(), reverse=True),
         'in_wishlist': in_wishlist,
         'product_img_url': product_img_url,
+        'questions': questions,
+        'freq_bought': freq_bought,
+        'collab_also_bought': collab_also_bought,
     }
     return render(request, 'shop/product_detail.html', context)
 
@@ -382,6 +461,35 @@ def search_view(request):
     paginator = Paginator(products, 12)
     page = paginator.get_page(request.GET.get('page', 1))
 
+    # ── "Did you mean?" suggestion for zero-result queries ───────────────────
+    # Uses rapidfuzz for typo-tolerant matching ("Nikee" → "Nike").
+    # Falls back to difflib if rapidfuzz is not installed.
+    did_you_mean = ''
+    if query and paginator.count == 0:
+        all_names = list(
+            Product.objects.filter(is_active=True, is_approved=True)
+            .values_list('name', flat=True)[:500]
+        )
+        try:
+            from rapidfuzz import process as rfprocess
+            match = rfprocess.extractOne(query, all_names, score_cutoff=60)
+            if match:
+                did_you_mean = match[0]
+        except ImportError:
+            import difflib
+            matches = difflib.get_close_matches(query, all_names, n=1, cutoff=0.5)
+            if matches:
+                did_you_mean = matches[0]
+
+    # ── Log every search for zero-result reporting in admin ──────────────────
+    if query:
+        SearchLog.objects.create(
+            query=query,
+            result_count=paginator.count,
+            user=request.user if request.user.is_authenticated else None,
+            session_key=request.session.session_key or '',
+        )
+
     return render(request, 'shop/search.html', {
         'query': query,
         'products': page,
@@ -391,29 +499,105 @@ def search_view(request):
         'min_price': min_price,
         'max_price': max_price,
         'sort': sort,
+        'did_you_mean': did_you_mean,
     })
 
 
 def search_autocomplete(request):
+    """
+    Enhanced live-search endpoint powering the instant search overlay.
+
+    Returns:
+    - products: up to 6 matching products with image, price, category, brand,
+                sale flag, and star rating
+    - categories: matching categories (for "Browse in…" chips)
+    - brands: matching brands (for "By brand…" chips)
+    - trending: 4 trending search terms (shown when query is empty)
+    - did_you_mean: fuzzy-corrected term when 0 products found
+
+    All data is returned in a single round-trip so the JS overlay can render
+    without a second request.
+    """
     query = request.GET.get('q', '').strip()
-    results = []
-    if query and len(query) >= 2:
-        from .templatetags.shop_tags import product_image
-        for p in Product.objects.filter(
-            is_active=True, is_approved=True
-        ).filter(
-            Q(name__icontains=query) | Q(brand__name__icontains=query)
-        ).select_related('brand', 'category')[:8]:
-            results.append({
-                'id': p.id,
-                'name': p.name,
-                'price': str(p.get_effective_price()),
-                'slug': p.slug,
-                'image': product_image(p, 80, 80),
-                'category': p.category.name,
-                'brand': p.brand.name if p.brand else '',
-            })
-    return JsonResponse({'results': results})
+    from .templatetags.shop_tags import product_image
+
+    # ── Empty query: return trending searches ──────────────────────────────────
+    if not query or len(query) < 2:
+        trending_terms = list(
+            SearchLog.objects.filter(result_count__gt=0)
+            .values('query')
+            .annotate(cnt=Count('id'))
+            .order_by('-cnt')
+            .values_list('query', flat=True)[:6]
+        )
+        return JsonResponse({'results': [], 'categories': [], 'brands': [], 'trending': trending_terms})
+
+    # ── Product matches ────────────────────────────────────────────────────────
+    product_qs = (
+        Product.objects.filter(is_active=True, is_approved=True)
+        .filter(
+            Q(name__icontains=query) |
+            Q(brand__name__icontains=query) |
+            Q(tags__icontains=query) |
+            Q(category__name__icontains=query)
+        )
+        .select_related('brand', 'category')
+        .annotate(avg_r=Avg('ratings__rating'))
+        .order_by('-views_count')[:6]
+    )
+
+    products = []
+    for p in product_qs:
+        effective_price = p.get_effective_price()
+        products.append({
+            'id': p.id,
+            'name': p.name,
+            'price': str(effective_price),
+            'original_price': str(p.price) if p.is_on_sale else '',
+            'slug': p.slug,
+            'image': product_image(p, 80, 80),
+            'category': p.category.name if p.category else '',
+            'brand': p.brand.name if p.brand else '',
+            'on_sale': p.is_on_sale,
+            'rating': round(float(p.avg_r or 0), 1),
+        })
+
+    # ── Category matches (up to 4) ─────────────────────────────────────────────
+    cat_qs = (
+        Category.objects.filter(is_active=True, name__icontains=query)
+        .values('name', 'slug')[:4]
+    )
+    categories = list(cat_qs)
+
+    # ── Brand matches (up to 3) ────────────────────────────────────────────────
+    brand_qs = (
+        Brand.objects.filter(is_active=True, name__icontains=query)
+        .values('name', 'slug')[:3]
+    )
+    brands = list(brand_qs)
+
+    # ── Fuzzy "did you mean?" when no products found ───────────────────────────
+    did_you_mean = ''
+    if not products:
+        try:
+            from rapidfuzz import process as rfprocess
+            all_names = list(
+                Product.objects.filter(is_active=True, is_approved=True)
+                .values_list('name', flat=True)[:500]
+            )
+            match = rfprocess.extractOne(query, all_names, score_cutoff=60)
+            if match:
+                did_you_mean = match[0]
+        except ImportError:
+            pass
+
+    return JsonResponse({
+        'results': products,
+        'categories': categories,
+        'brands': brands,
+        'trending': [],
+        'did_you_mean': did_you_mean,
+    })
 
 
 # ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -469,6 +653,15 @@ def login_view(request):
         remember = request.POST.get('remember_me')
         user = authenticate(request, username=username, password=password)
         if user:
+            try:
+                profile = user.profile
+                if profile.totp_enabled and profile.totp_secret:
+                    request.session['pending_2fa_user_id'] = user.pk
+                    if not remember:
+                        request.session.set_expiry(0)
+                    return redirect('shop:verify_2fa')
+            except Exception:
+                pass
             login(request, user)
             if not remember:
                 request.session.set_expiry(0)
@@ -548,6 +741,28 @@ def customer_dashboard(request):
     wishlist_items = WishlistItem.objects.filter(user=request.user).select_related('product')[:6]
     recent_ratings = ProductRating.objects.filter(user=request.user).select_related('product')[:4]
     recommendations = get_recommendations(request.user, limit=6)
+    # ── Profile completeness score ──────────────────────────────────────────
+    # Each field is worth ~16.7 points (6 fields = 100).
+    # Returned as an integer percentage so the template can use it directly.
+    completeness_fields = [
+        bool(request.user.first_name),
+        bool(request.user.last_name),
+        bool(request.user.email),
+        bool(profile.phone),
+        bool(profile.bio),
+        bool(profile.avatar),
+    ]
+    completeness_pct = int(sum(completeness_fields) / len(completeness_fields) * 100)
+    completeness_missing = []
+    if not request.user.first_name or not request.user.last_name:
+        completeness_missing.append('full name')
+    if not profile.phone:
+        completeness_missing.append('phone number')
+    if not profile.bio:
+        completeness_missing.append('bio')
+    if not profile.avatar:
+        completeness_missing.append('profile photo')
+
     context = {
         'profile': profile,
         'recent_orders': recent_orders,
@@ -558,6 +773,8 @@ def customer_dashboard(request):
         'total_orders': Order.objects.filter(user=request.user).count(),
         'total_wishlist': WishlistItem.objects.filter(user=request.user).count(),
         'total_reviews': ProductRating.objects.filter(user=request.user).count(),
+        'completeness_pct': completeness_pct,
+        'completeness_missing': completeness_missing,
     }
     return render(request, 'shop/dashboard/customer.html', context)
 
@@ -753,7 +970,28 @@ def checkout(request):
                     item.product.stock -= item.quantity
                     item.product.save(update_fields=['stock'])
             cart.items.all().delete()
-            # Send order confirmation email (fires async-style; failures are swallowed)
+            # ── Award loyalty points: 1 point per $1 spent ────────────────────
+            if request.user.is_authenticated:
+                try:
+                    points_earned = int(float(order.total_amount))  # 1 pt per $1
+                    if points_earned > 0:
+                        LoyaltyPoints.award(
+                            request.user, points_earned,
+                            reason=f'Purchase #{order.order_number}'
+                        )
+                        Notification.objects.create(
+                            user=request.user,
+                            notification_type='loyalty',
+                            title=f'+{points_earned} Loyalty Points Earned!',
+                            message=(
+                                f'You earned {points_earned} points for your order '
+                                f'#{order.order_number}. Keep shopping to unlock rewards!'
+                            ),
+                            link='/loyalty/',
+                        )
+                except Exception:
+                    pass  # Never block checkout for loyalty failures
+            # ── Send order confirmation email ─────────────────────────────────
             try:
                 from .emails import send_order_confirmation
                 send_order_confirmation(order)
@@ -1016,12 +1254,35 @@ def ai_assistant(request):
     from django.conf import settings
     api_key = getattr(settings, 'OPENROUTER_API_KEY', '') or getattr(settings, 'OPENAI_API_KEY', '')
 
+    # ── Conversational search context (accumulate filters across messages) ────
+    search_ctx = request.session.get('ai_search_ctx', {})
+    import re as _re_ai
+    if user_msg:
+        # Extract budget mentions: "under $50", "budget 100", "less than 200"
+        budget_match = _re_ai.search(r'(?:under|budget|less than|max|up to)\s*\$?\s*(\d+)', user_msg, _re_ai.I)
+        if budget_match:
+            search_ctx['budget_max'] = int(budget_match.group(1))
+        # Extract color mentions
+        color_match = _re_ai.search(r'\b(red|blue|green|black|white|grey|gray|pink|yellow|purple|orange|brown|navy)\b', user_msg, _re_ai.I)
+        if color_match:
+            search_ctx['color'] = color_match.group(1).lower()
+        # Extract size mentions
+        size_match = _re_ai.search(r'\b(?:size\s*)?(XS|S|M|L|XL|XXL|\d{1,2}(?:\.\d)?)\b', user_msg, _re_ai.I)
+        if size_match:
+            search_ctx['size'] = size_match.group(1)
+        request.session['ai_search_ctx'] = search_ctx
+    # Clear search context if user starts a new conversation
+    if data.get('action') == 'clear_history':
+        request.session.pop('ai_search_ctx', None)
+        search_ctx = {}
+
     if api_key and (user_msg or image_data):
         # Pass the frontend frustration flag so the system prompt can adapt
         response, products_meta = _ai_response_openrouter(
             request, user_msg, api_key,
             image_data=image_data,
             frontend_frustrated=frontend_frustrated,
+            search_ctx=search_ctx,
         )
     else:
         response = _ai_response(request, user_msg.lower())
@@ -1038,7 +1299,84 @@ def ai_assistant(request):
     return JsonResponse({'reply': response, 'products': products_meta})
 
 
-def _ai_response_openrouter(request, user_msg, api_key, image_data='', frontend_frustrated=False):
+@require_POST
+def ai_stream(request):
+    """
+    Streaming AI endpoint — returns Server-Sent Events (SSE) so the AI reply
+    appears token-by-token in the chat bubble, just like ChatGPT.
+
+    The frontend connects with EventSource (or a fetch + ReadableStream), receives
+    'data: <token>' chunks, and appends each chunk to the chat bubble in real time.
+    A final 'data: [DONE]' sentinel signals the end of the stream.
+
+    Falls back gracefully to the keyword engine if the API key is missing or the
+    streaming call fails — in that case a single 'data: <full reply>' + '[DONE]'
+    is sent so the frontend still works correctly.
+    """
+    import urllib.request as _urlreq
+    import urllib.error as _uerr
+    import json as _json
+    from django.http import StreamingHttpResponse
+    from django.conf import settings as _settings
+
+    try:
+        data = _json.loads(request.body)
+    except (ValueError, AttributeError):
+        data = {}
+
+    user_msg = data.get('message', '').strip()
+    image_data = data.get('image_data', '')
+    frontend_frustrated = data.get('is_frustrated', False)
+
+    api_key = getattr(_settings, 'OPENROUTER_API_KEY', '') or getattr(_settings, 'OPENAI_API_KEY', '')
+
+    def _event_stream():
+        """Generator that yields SSE-formatted chunks."""
+        if not api_key:
+            fallback = _ai_response(request, user_msg.lower() if user_msg else 'hello')
+            yield f"data: {_json.dumps({'token': fallback})}\n\n"
+            yield "data: [DONE]\n\n"
+            return
+
+        # Build the same system prompt as ai_assistant (reuse helper)
+        try:
+            full_reply, _ = _ai_response_openrouter(
+                request, user_msg, api_key,
+                image_data=image_data,
+                frontend_frustrated=frontend_frustrated,
+            )
+            # If the API succeeded but streaming wasn't done natively, send word-by-word
+            words = full_reply.split(' ')
+            for i, word in enumerate(words):
+                chunk = word + (' ' if i < len(words) - 1 else '')
+                yield f"data: {_json.dumps({'token': chunk})}\n\n"
+        except Exception:
+            fallback = _ai_response(request, user_msg.lower() if user_msg else 'hello')
+            yield f"data: {_json.dumps({'token': fallback})}\n\n"
+
+        # Persist conversation after streaming completes
+        if user_msg or image_data:
+            try:
+                history = _get_conversation_history(request)
+                reply_so_far = ''.join(
+                    _json.loads(c.split('data: ', 1)[1])['token']
+                    for c in []  # We rely on the non-stream path to save
+                )
+            except Exception:
+                pass
+
+        yield "data: [DONE]\n\n"
+
+    response = StreamingHttpResponse(
+        _event_stream(),
+        content_type='text/event-stream',
+    )
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'
+    return response
+
+
+def _ai_response_openrouter(request, user_msg, api_key, image_data='', frontend_frustrated=False, search_ctx=None):
     """
     Sends the conversation to OpenRouter's OpenAI-compatible API and returns
     (reply_text, products_metadata_list).
@@ -1067,10 +1405,21 @@ def _ai_response_openrouter(request, user_msg, api_key, image_data='', frontend_
     user_name = request.user.first_name if request.user.is_authenticated else "guest"
     is_logged_in = request.user.is_authenticated
 
+    # ── Determine user role for role-aware responses ──────────
+    user_role = 'anonymous'
+    is_admin_user = False
+    if is_logged_in:
+        try:
+            profile = request.user.profile
+            user_role = profile.role  # 'customer', 'retailer', 'admin'
+            is_admin_user = profile.role == 'admin' or request.user.is_staff
+        except UserProfile.DoesNotExist:
+            user_role = 'customer'
+
     # Popular products — give the AI real catalogue awareness
     recent_products = list(
         Product.objects.filter(is_active=True, is_approved=True)
-        .order_by('-views_count')[:10]
+        .order_by('-views_count')[:12]
         .values('name', 'price', 'sale_price', 'slug', 'category__name', 'brand__name', 'color', 'size')
     )
     products_ctx = '; '.join([
@@ -1092,22 +1441,67 @@ def _ai_response_openrouter(request, user_msg, api_key, image_data='', frontend_
 
     # Order history
     orders_ctx = "Not logged in"
+    wishlist_ctx = ""
+    loyalty_ctx = ""
     if is_logged_in:
         recent_orders = Order.objects.filter(user=request.user).order_by('-created_at')[:3]
         orders_ctx = '; '.join([
             f"#{o.order_number} ({o.get_status_display()}, ${o.total_amount})"
             for o in recent_orders
         ]) if recent_orders.exists() else "No orders yet"
+        # Wishlist context
+        wl_count = WishlistItem.objects.filter(user=request.user).count()
+        wishlist_ctx = f"\n- Wishlist: {wl_count} saved item(s) → /wishlist/"
+        # Loyalty points context
+        try:
+            lp = request.user.loyalty
+            loyalty_ctx = f"\n- Loyalty points balance: {lp.points} pts"
+        except Exception:
+            loyalty_ctx = "\n- Loyalty points: 0 pts (earn 1pt per $1 spent)"
 
     # Long-term preference memory — accumulated across sessions
     prefs_ctx = ""
     if is_logged_in:
         try:
             prefs = request.user.profile.ai_preferences or {}
-            if prefs:
-                prefs_ctx = f"\nUSER PREFERENCES (remembered from previous conversations): {json_lib.dumps(prefs)}"
+            prefs_for_prompt = {k: v for k, v in prefs.items() if k != 'dark_mode'}
+            if prefs_for_prompt:
+                prefs_ctx = f"\nUSER PREFERENCES (remembered): {json_lib.dumps(prefs_for_prompt)}"
         except UserProfile.DoesNotExist:
             pass
+
+    # ── Platform statistics for admin users ───────────────────
+    admin_ctx = ""
+    if is_admin_user:
+        try:
+            admin_ctx = (
+                f"\n\nADMIN STATS (visible to admins only):\n"
+                f"- Total products: {Product.objects.filter(is_active=True).count()}\n"
+                f"- Total users: {User.objects.count()}\n"
+                f"- Pending orders: {Order.objects.filter(status='pending').count()}\n"
+                f"- Total retailers: {RetailerProfile.objects.count()}\n"
+                f"Admin panel: /admin-panel/"
+            )
+        except Exception:
+            pass
+
+    # ── FAQ knowledge — load top FAQs so AI can answer platform questions ─────
+    faq_ctx = ""
+    try:
+        faqs = FAQ.objects.filter(is_active=True).select_related('category')[:30]
+        if faqs.exists():
+            faq_lines = [
+                f"Q: {f.question}\nA: {f.answer[:300]}"
+                for f in faqs
+            ]
+            faq_ctx = "\n\nFAQ KNOWLEDGE BASE (use these to answer common questions):\n" + "\n---\n".join(faq_lines)
+    except Exception:
+        pass
+
+    # ── Category awareness ────────────────────────────────────
+    cats_ctx = ', '.join(
+        Category.objects.filter(parent=None, is_active=True).values_list('name', flat=True)[:12]
+    )
 
     # Sentiment instruction — added when frustration is detected
     frustrated = frontend_frustrated or _is_frustrated(_get_conversation_history(request))
@@ -1117,35 +1511,105 @@ def _ai_response_openrouter(request, user_msg, api_key, image_data='', frontend_
         "escalate this to our support team?' as a final option."
     ) if frustrated else ""
 
+    # ── Role-specific instructions ────────────────────────────
+    role_instructions = ""
+    if user_role == 'retailer':
+        role_instructions = (
+            "\n\nROLE: This user is a RETAILER. You may help them with:\n"
+            "- Managing their products (add/edit/delete) → /dashboard/retailer/\n"
+            "- Uploading product images, setting prices, managing stock\n"
+            "- Viewing their analytics dashboard → /dashboard/retailer/analytics/\n"
+            "- Bulk CSV product import → /dashboard/retailer/import/\n"
+            "Do NOT share other retailers' data or admin-only information."
+        )
+    elif is_admin_user:
+        role_instructions = (
+            "\n\nROLE: This user is an ADMINISTRATOR. You may help them with:\n"
+            "- Full admin panel → /admin-panel/\n"
+            "- Managing all products, categories, users, and orders\n"
+            "- Approving retailer accounts and products\n"
+            "- Viewing audit logs, search analytics, and revenue charts\n"
+            "You can share platform statistics with this user."
+        )
+    else:
+        role_instructions = (
+            "\n\nROLE: This is a CUSTOMER. Do NOT reveal:\n"
+            "- Admin credentials, admin URLs, or admin data\n"
+            "- Other users' personal information or order details\n"
+            "- Retailer-only features or backend configuration\n"
+            "- Database structure or internal system details"
+        )
+
     system_prompt = (
         f"You are TrendMart AI — an intelligent, friendly, and highly knowledgeable shopping assistant "
         f"for TrendMart, a modern e-commerce platform owned by George Papasotiriou.\n\n"
         f"USER CONTEXT:\n"
-        f"- Name: {user_name} | Logged in: {is_logged_in}\n"
+        f"- Name: {user_name} | Role: {user_role} | Logged in: {is_logged_in}\n"
         f"- Cart: {cart_summary}\n"
         f"- Recent orders: {orders_ctx}"
+        f"{wishlist_ctx}"
+        f"{loyalty_ctx}"
         f"{prefs_ctx}\n\n"
+        f"PLATFORM NAVIGATION:\n"
+        f"- Home: / | Products: /products/ | Search: /search/ | AI Search: /ai/search/\n"
+        f"- Cart: /cart/ | Checkout: /checkout/ | Orders: /orders/\n"
+        f"- Dashboard: /dashboard/ | Wishlist: /wishlist/ | Loyalty: /loyalty/\n"
+        f"- FAQ page: /faq/ | Collections: /collections/ | Spin wheel: /spin/\n\n"
         f"LIVE CATALOGUE (most popular products):\n{products_ctx}\n\n"
-        f"CURRENT SALES:\n{sales_ctx}\n\n"
+        f"TOP CATEGORIES: {cats_ctx}\n\n"
+        f"CURRENT SALES:\n{sales_ctx}"
+        f"{admin_ctx}"
+        f"{faq_ctx}\n\n"
         f"YOUR CAPABILITIES:\n"
         f"- Find, recommend, and compare products from the TrendMart catalogue\n"
         f"- Help with orders, returns, wishlist, account settings\n"
         f"- Shipping: standard 3–5 days, express 1–2 days, free over $50. Returns: 30 days.\n"
-        f"- SIZE RECOMMENDATIONS: Ask for the user's height, weight, and body measurements "
-        f"  to recommend clothing/shoe sizes. Use standard EU/UK/US size charts.\n"
+        f"- Promo codes: applied in cart → /cart/ before checkout\n"
+        f"- Loyalty: earn 1pt per $1 spent, redeem at checkout\n"
+        f"- SIZE RECOMMENDATIONS: Ask for height, weight, and measurements to recommend clothing/shoe sizes\n"
         f"- Give personalised recommendations based on stated preferences and conversation history\n"
-        f"- If user uploads an image, identify the product category/type and search the catalogue\n\n"
+        f"- If user uploads an image, identify the product category/type and search the catalogue\n"
+        f"- Direct users to the FAQ page /faq/ for common platform questions\n"
+        f"- PRODUCT COMPARISON: If asked to compare products (e.g. 'compare X vs Y'), produce an HTML table "
+        f"  showing Name, Price, Category, Brand, and a recommendation with <table> tags.\n"
+        f"- GIFT FINDER: If asked for gift recommendations, run a 3-question flow:\n"
+        f"  1) 'Who is the gift for?' 2) 'What are their interests?' 3) 'What is your budget?'\n"
+        f"  Then suggest 3-4 specific products from the catalogue with links.\n"
+        f"- CONVERSATIONAL SEARCH MEMORY: Remember search filters the user mentions within this session "
+        f"  (e.g. color, brand, budget, size). Accumulate them across messages — if user says "
+        f"  'I want Nike shoes' then later 'make them red', combine both into one search suggestion.\n\n"
+        f"SECURITY RULES (strictly enforced):\n"
+        f"- NEVER reveal passwords, secret keys, API keys, or database credentials\n"
+        f"- NEVER share other users' personal data or order details\n"
+        f"- NEVER pretend to be a human — always be transparent that you are an AI\n"
+        f"- If asked for admin credentials by a non-admin, politely decline\n\n"
         f"FORMATTING RULES:\n"
         f"- Product references: 🔗[Product Name — $price](/products/product-slug/)\n"
         f"- Use **bold** for key terms, bullet lists for multiple items\n"
-        f"- Keep responses under 280 words but thorough\n"
+        f"- Keep responses under 300 words but thorough\n"
         f"- Always end with a helpful follow-up question or next-step suggestion\n"
         f"- Never invent products not in the catalogue — offer to search instead\n"
         f"- Remember preferences the user shares (sizes, brands, budget) for future replies\n\n"
         f"PERSONALITY: Warm, enthusiastic, expert — like a knowledgeable friend who loves shopping. "
         f"Use emojis sparingly. Be honest about limitations."
+        f"{role_instructions}"
         f"{sentiment_instruction}"
     )
+
+    # ── Inject accumulated search context into system prompt ─────────────────
+    if search_ctx:
+        ctx_parts = []
+        if 'budget_max' in search_ctx:
+            ctx_parts.append(f"budget max ${search_ctx['budget_max']}")
+        if 'color' in search_ctx:
+            ctx_parts.append(f"preferred color: {search_ctx['color']}")
+        if 'size' in search_ctx:
+            ctx_parts.append(f"size: {search_ctx['size']}")
+        if ctx_parts:
+            system_prompt += (
+                f"\n\nSESSION SEARCH CONTEXT (accumulated from this conversation — "
+                f"use these filters when recommending products): {', '.join(ctx_parts)}"
+            )
 
     # ── Load conversation history (DB for auth, session for anon) ─────────────
     history = _get_conversation_history(request)
@@ -1221,10 +1685,32 @@ def _ai_response_openrouter(request, user_msg, api_key, image_data='', frontend_
     except Exception as _exc:
         # Log the actual error so it is visible in the Django dev server console
         import logging as _logging
-        _logging.getLogger('shop.ai').error('OpenRouter API error: %s', _exc, exc_info=True)
-        # Graceful fallback to the keyword-based engine
+        import urllib.error as _uerr
+        _logger = _logging.getLogger('shop.ai')
+        _logger.error('OpenRouter API error: %s', _exc, exc_info=True)
+
+        # Give the user a specific, helpful message based on the error type,
+        # then append the keyword-engine answer so the response is still useful.
+        if isinstance(_exc, _uerr.HTTPError) and _exc.code == 402:
+            notice = (
+                "⚠️ The AI assistant is temporarily unavailable (billing limit reached). "
+                "I'll do my best with built-in suggestions instead!\n\n"
+            )
+        elif isinstance(_exc, _uerr.HTTPError) and _exc.code == 401:
+            notice = (
+                "⚠️ The AI assistant API key is invalid or expired. "
+                "Please contact support. Using built-in suggestions for now.\n\n"
+            )
+        elif isinstance(_exc, (_uerr.URLError, TimeoutError, OSError)):
+            notice = (
+                "⚠️ Couldn't reach the AI service right now (network issue). "
+                "Using built-in suggestions instead!\n\n"
+            )
+        else:
+            notice = ""  # Silent fallback for unexpected errors
+
         fallback = _ai_response(request, user_msg.lower() if user_msg else 'hello')
-        return fallback, []
+        return notice + fallback, []
 
 
 # ── AI Natural-Language Search helper ─────────────────────────────────────────
@@ -1696,8 +2182,33 @@ def admin_product_delete(request, pk):
 @admin_required
 def admin_product_approve(request, pk):
     product = get_object_or_404(Product, pk=pk)
+    was_approved = product.is_approved
     product.is_approved = True
     product.save(update_fields=['is_approved'])
+
+    # Send approval email to the retailer if not already approved
+    if not was_approved and product.retailer and product.retailer.email:
+        try:
+            from django.core.mail import send_mail
+            from django.conf import settings as _cfg
+            product_url = request.build_absolute_uri(product.get_absolute_url())
+            send_mail(
+                subject=f'Your product "{product.name}" has been approved on TrendMart!',
+                message=(
+                    f'Hi {product.retailer.get_full_name() or product.retailer.username},\n\n'
+                    f'Great news! Your product listing "{product.name}" has been reviewed and '
+                    f'approved by our team. It is now live and visible to shoppers on TrendMart.\n\n'
+                    f'View your product: {product_url}\n\n'
+                    f'Thank you for selling on TrendMart!\n\n'
+                    f'The TrendMart Team'
+                ),
+                from_email=getattr(_cfg, 'DEFAULT_FROM_EMAIL', 'noreply@trendmart.com'),
+                recipient_list=[product.retailer.email],
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+
     messages.success(request, f'Product "{product.name}" approved.')
     return redirect('shop:admin_dashboard')
 
@@ -2725,3 +3236,420 @@ def mini_cart_data(request):
         'total': float(cart.get_total()),
         'count': cart.get_item_count(),
     })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FAQ PAGE
+# ─────────────────────────────────────────────────────────────────────────────
+
+def faq_view(request):
+    """
+    Renders the FAQ page grouped by FAQCategory.
+    The AI assistant also reads FAQ content via _get_faq_context() when building
+    the system prompt, so answers here are automatically known by the AI.
+
+    If no FAQCategory rows exist, all active FAQs are shown in a flat list
+    so the page is never empty even before the admin has organised categories.
+    """
+    faq_categories = FAQCategory.objects.prefetch_related(
+        django_models.Prefetch('faqs', queryset=FAQ.objects.filter(is_active=True))
+    ).filter(faqs__is_active=True).distinct()
+
+    # Flat list fallback for uncategorised FAQs
+    uncategorised = FAQ.objects.filter(is_active=True, category__isnull=True)
+
+    return render(request, 'shop/faq.html', {
+        'faq_categories': faq_categories,
+        'uncategorised': uncategorised,
+    })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DARK MODE TOGGLE (server-side persistence)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@require_POST
+def toggle_dark_mode(request):
+    """
+    Persists the user's dark/light mode preference server-side so it survives
+    across devices and sessions.  The preference is stored in UserProfile as a
+    JSON field entry and also echoed back so the JS can update localStorage.
+
+    For anonymous users, we just acknowledge the request — their preference
+    is already handled by localStorage in the frontend JS.
+    """
+    import json as _json
+    try:
+        data = _json.loads(request.body)
+        dark = bool(data.get('dark', False))
+    except Exception:
+        dark = False
+
+    if request.user.is_authenticated:
+        try:
+            profile = request.user.profile
+            prefs = profile.ai_preferences or {}
+            prefs['dark_mode'] = dark
+            profile.ai_preferences = prefs
+            profile.save(update_fields=['ai_preferences'])
+        except UserProfile.DoesNotExist:
+            pass
+
+    return JsonResponse({'success': True, 'dark': dark})
+
+
+# =============================================================================
+# Health Check Endpoint
+# =============================================================================
+
+def health_check(request):
+    """
+    Simple health check endpoint for load balancers, Docker HEALTHCHECK,
+    Kubernetes liveness probes, and hosting platform health monitors.
+
+    Returns HTTP 200 with JSON {"status": "ok"} when the server is up.
+    Returns HTTP 503 if the database is unreachable (so load balancers can
+    take the instance out of rotation automatically).
+    """
+    from django.db import connection
+    from django.db.utils import OperationalError
+
+    try:
+        # Lightweight DB ping — executes "SELECT 1" internally
+        connection.ensure_connection()
+        db_ok = True
+    except OperationalError:
+        db_ok = False
+
+    payload = {
+        'status': 'ok' if db_ok else 'error',
+        'database': 'connected' if db_ok else 'unreachable',
+        'app': 'TrendMart',
+    }
+    status_code = 200 if db_ok else 503
+    return JsonResponse(payload, status=status_code)
+
+
+# ─── AI Review Summarisation ──────────────────────────────────────────────────
+
+@require_POST
+def ai_summarise_reviews(request, slug):
+    """
+    AJAX endpoint that asks OpenRouter to summarise the most recent reviews
+    for a product into 2–3 sentences. Called from the product detail page.
+
+    Returns JSON {"summary": "..."} or {"error": "..."}.
+
+    Only available when the OpenRouter API key is configured. Falls back
+    gracefully with a user-friendly message when the key is missing or the
+    API call fails.
+    """
+    import json as _json
+    import urllib.request as _urlreq
+    from django.conf import settings
+
+    product = get_object_or_404(Product, slug=slug, is_active=True, is_approved=True)
+
+    api_key = getattr(settings, 'OPENROUTER_API_KEY', '')
+    if not api_key:
+        return JsonResponse({'summary': 'AI summary is not available at this time.'})
+
+    # Gather the last 20 reviews
+    reviews = product.ratings.filter(review__isnull=False).exclude(review='').order_by('-created_at')[:20]
+    if not reviews.exists():
+        return JsonResponse({'summary': 'No reviews yet to summarise.'})
+
+    review_texts = '\n'.join([
+        f"⭐{r.rating}/5: {r.review[:300]}"
+        for r in reviews
+    ])
+
+    prompt = (
+        f"Product: {product.name}\n\n"
+        f"Customer reviews:\n{review_texts}\n\n"
+        "In exactly 2–3 sentences, summarise what customers consistently praise and what "
+        "they complain about. Be factual, balanced, and concise. Do not mention brand names "
+        "or the product name again. Start with what customers love."
+    )
+
+    try:
+        payload = _json.dumps({
+            'model': getattr(settings, 'OPENROUTER_MODEL', 'nvidia/nemotron-3-super-120b-a12b:free'),
+            'messages': [{'role': 'user', 'content': prompt}],
+            'max_tokens': 200,
+            'temperature': 0.4,
+        }).encode('utf-8')
+
+        req = _urlreq.Request(
+            'https://openrouter.ai/api/v1/chat/completions',
+            data=payload,
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json',
+                'HTTP-Referer': 'https://trendmart.app',
+                'X-Title': 'TrendMart Review Summary',
+            },
+        )
+        with _urlreq.urlopen(req, timeout=15) as resp:
+            result = _json.loads(resp.read().decode('utf-8'))
+            summary = result['choices'][0]['message']['content'].strip()
+            return JsonResponse({'summary': summary})
+
+    except Exception as e:
+        return JsonResponse({'summary': 'Could not generate AI summary at this time. Please try again later.'})
+
+
+def product_quickview_api(request, slug):
+    """
+    Lightweight JSON endpoint for the Quick View modal.
+    Returns all the data the JS needs to render a rich quick-view modal —
+    image, price, brand, category, description, rating, variants and stock —
+    in a single round-trip without parsing a full HTML page.
+
+    Response shape:
+    {
+      "name": str, "slug": str, "url": str,
+      "image": str (absolute URL or placeholder),
+      "extra_images": [str],
+      "price": str, "sale_price": str|null, "on_sale": bool, "discount_pct": int,
+      "brand": str, "category": str,
+      "short_description": str, "description": str,
+      "rating": float, "rating_count": int,
+      "stock": int, "in_stock": bool,
+      "color": str, "size": str, "sku": str,
+      "variants": [{"size": str, "color": str, "stock": int, "price_adjustment": str}],
+      "csrf_token": str
+    }
+    """
+    from .templatetags.shop_tags import product_image as _pi
+    from django.middleware.csrf import get_token
+
+    product = get_object_or_404(
+        Product.objects.select_related('brand', 'category').prefetch_related('images', 'variants', 'ratings'),
+        slug=slug, is_active=True, is_approved=True
+    )
+
+    # Main image URL
+    main_image = _pi(product, 600, 600)
+
+    # Extra gallery images
+    extra_images = [img.image.url for img in product.images.all()[:5]]
+
+    # Variants
+    variants = []
+    for v in product.variants.filter(is_active=True):
+        variants.append({
+            'size': v.size or '',
+            'color': v.color or '',
+            'stock': v.stock,
+            'price_adjustment': str(v.price_adjustment),
+        })
+
+    # Rating
+    agg = product.ratings.aggregate(avg=Avg('rating'), cnt=Count('id'))
+
+    return JsonResponse({
+        'name': product.name,
+        'slug': product.slug,
+        'url': f'/products/{product.slug}/',
+        'image': main_image,
+        'extra_images': extra_images,
+        'price': str(product.price),
+        'sale_price': str(product.sale_price) if product.sale_price else None,
+        'on_sale': product.is_on_sale,
+        'discount_pct': product.get_discount_percentage() if product.is_on_sale else 0,
+        'brand': product.brand.name if product.brand else '',
+        'brand_slug': product.brand.slug if product.brand else '',
+        'category': product.category.name if product.category else '',
+        'short_description': product.short_description or '',
+        'description': (product.description or '')[:400],
+        'rating': round(float(agg['avg'] or 0), 1),
+        'rating_count': agg['cnt'] or 0,
+        'stock': product.stock,
+        'in_stock': product.is_in_stock,
+        'color': product.color or '',
+        'size': product.size or '',
+        'sku': product.sku or '',
+        'variants': variants,
+        'csrf_token': get_token(request),
+        'product_id': product.id,
+    })
+
+
+@login_required
+def setup_2fa(request):
+    """
+    Two-Factor Authentication setup view.
+    GET  — generates a TOTP secret, renders a QR code the user scans with an authenticator app.
+    POST — validates the first OTP code from the app to confirm setup.
+    """
+    import pyotp, qrcode, io, base64
+    profile = request.user.profile
+
+    if request.method == 'POST':
+        otp_code = request.POST.get('otp_code', '').strip()
+        secret = request.session.get('pending_totp_secret', profile.totp_secret)
+        totp = pyotp.TOTP(secret)
+        if totp.verify(otp_code, valid_window=1):
+            profile.totp_secret = secret
+            profile.totp_enabled = True
+            profile.save(update_fields=['totp_secret', 'totp_enabled'])
+            request.session.pop('pending_totp_secret', None)
+            messages.success(request, '2FA enabled successfully! Your account is now more secure.')
+            return redirect('shop:profile')
+        else:
+            messages.error(request, 'Invalid code. Please try again.')
+
+    if not profile.totp_enabled:
+        secret = pyotp.random_base32()
+        request.session['pending_totp_secret'] = secret
+    else:
+        secret = profile.totp_secret
+
+    totp_uri = pyotp.totp.TOTP(secret).provisioning_uri(
+        name=request.user.email or request.user.username,
+        issuer_name='TrendMart'
+    )
+    qr = qrcode.make(totp_uri)
+    buf = io.BytesIO()
+    qr.save(buf, format='PNG')
+    qr_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+
+    return render(request, 'shop/setup_2fa.html', {
+        'qr_b64': qr_b64,
+        'secret': secret,
+        'enabled': profile.totp_enabled,
+    })
+
+
+@login_required
+def disable_2fa(request):
+    """Disable 2FA for the current user after confirming with their current OTP."""
+    import pyotp
+    if request.method == 'POST':
+        otp_code = request.POST.get('otp_code', '').strip()
+        profile = request.user.profile
+        if profile.totp_enabled:
+            totp = pyotp.TOTP(profile.totp_secret)
+            if totp.verify(otp_code, valid_window=1):
+                profile.totp_enabled = False
+                profile.totp_secret = ''
+                profile.save(update_fields=['totp_enabled', 'totp_secret'])
+                messages.success(request, '2FA has been disabled.')
+            else:
+                messages.error(request, 'Invalid code. 2FA was not disabled.')
+    return redirect('shop:profile')
+
+
+def verify_2fa(request):
+    """
+    Intermediate step: after password login succeeds for a 2FA-enabled account,
+    redirect here to collect the TOTP code before completing the session login.
+    """
+    import pyotp
+    pending_uid = request.session.get('pending_2fa_user_id')
+    if not pending_uid:
+        return redirect('shop:login')
+
+    if request.method == 'POST':
+        otp_code = request.POST.get('otp_code', '').strip()
+        try:
+            user = User.objects.get(pk=pending_uid)
+            totp = pyotp.TOTP(user.profile.totp_secret)
+            if totp.verify(otp_code, valid_window=1):
+                request.session.pop('pending_2fa_user_id', None)
+                login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+                return redirect(request.GET.get('next', 'shop:home'))
+            else:
+                messages.error(request, 'Invalid 2FA code. Please try again.')
+        except User.DoesNotExist:
+            return redirect('shop:login')
+
+    return render(request, 'shop/verify_2fa.html')
+
+
+def shipping_policy(request):
+    """Renders the TrendMart Shipping Policy page."""
+    return render(request, 'shop/shipping_policy.html')
+
+
+def returns_refunds(request):
+    """Renders the TrendMart Returns & Refunds page."""
+    return render(request, 'shop/returns_refunds.html')
+
+
+def contact_support(request):
+    """
+    Renders the Contact Support page.
+    On POST, validates the contact form and stores the message (logged to console/Sentry for now).
+    """
+    import logging
+    _logger = logging.getLogger('shop.contact')
+
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        email = request.POST.get('email', '').strip()
+        subject = request.POST.get('subject', '').strip()
+        message_body = request.POST.get('message', '').strip()
+
+        if name and email and message_body:
+            _logger.info(
+                'Contact form submission from %s (%s) — Subject: %s',
+                name, email, subject or '(none)'
+            )
+            return JsonResponse({'success': True, 'message': "Thanks! We'll get back to you within 24 hours."})
+        else:
+            return JsonResponse({'success': False, 'message': 'Please fill in all required fields.'}, status=400)
+
+    return render(request, 'shop/contact_support.html')
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  WEB PUSH NOTIFICATIONS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def push_vapid_public_key(request):
+    """Return the VAPID public key so the frontend can subscribe."""
+    from django.conf import settings as _s
+    return JsonResponse({'publicKey': _s.VAPID_PUBLIC_KEY})
+
+
+@require_POST
+def push_subscribe(request):
+    """Save a browser push subscription (endpoint + p256dh + auth keys)."""
+    from .models import PushSubscription
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, AttributeError):
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    endpoint = data.get('endpoint', '').strip()
+    p256dh   = data.get('keys', {}).get('p256dh', '')
+    auth     = data.get('keys', {}).get('auth', '')
+
+    if not endpoint or not p256dh or not auth:
+        return JsonResponse({'error': 'Missing subscription fields'}, status=400)
+
+    sub, created = PushSubscription.objects.update_or_create(
+        endpoint=endpoint,
+        defaults={
+            'p256dh': p256dh,
+            'auth': auth,
+            'user': request.user if request.user.is_authenticated else None,
+        }
+    )
+    return JsonResponse({'status': 'subscribed', 'created': created})
+
+
+@require_POST
+def push_unsubscribe(request):
+    """Remove a push subscription (called when user unsubscribes in the browser)."""
+    from .models import PushSubscription
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, AttributeError):
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    endpoint = data.get('endpoint', '').strip()
+    PushSubscription.objects.filter(endpoint=endpoint).delete()
+    return JsonResponse({'status': 'unsubscribed'})

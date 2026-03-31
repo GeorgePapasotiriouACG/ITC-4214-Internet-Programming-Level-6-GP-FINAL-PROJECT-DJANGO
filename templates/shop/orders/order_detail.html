@@ -15,6 +15,70 @@
     </div>
   </div>
 
+  <!-- Order Tracking Timeline -->
+  <div class="card" style="margin-bottom:1.5rem">
+    <h2 class="card-title">📦 Order Tracking</h2>
+    {% if order.status == 'cancelled' %}
+    <div class="alert alert-error" style="margin:0">
+      <span>❌</span><span>This order was cancelled.</span>
+    </div>
+    {% else %}
+    <div style="display:flex;align-items:flex-start;overflow-x:auto;padding-bottom:.5rem" role="list" aria-label="Order progress">
+
+      <!-- Step: Placed -->
+      {% with done=True current=order.status == 'pending' %}
+      <div role="listitem" style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:72px;position:relative">
+        <div style="position:absolute;top:18px;left:50%;right:-50%;width:100%;height:2px;background:var(--success);z-index:0"></div>
+        <div style="width:36px;height:36px;border-radius:50%;z-index:1;display:flex;align-items:center;justify-content:center;background:var(--success);color:#fff;font-weight:800;font-size:.9rem" aria-label="Order placed">✓</div>
+        <span style="font-size:.7rem;font-weight:700;color:var(--success);margin-top:.375rem;text-align:center">Placed</span>
+      </div>
+      {% endwith %}
+
+      <!-- Step: Processing -->
+      <div role="listitem" style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:72px;position:relative">
+        <div style="position:absolute;top:18px;left:-50%;right:-50%;width:200%;height:2px;z-index:0;
+          background:{% if order.status == 'processing' or order.status == 'shipped' or order.status == 'delivered' %}var(--primary){% else %}var(--border){% endif %}"></div>
+        <div style="width:36px;height:36px;border-radius:50%;z-index:1;display:flex;align-items:center;justify-content:center;font-size:.9rem;
+          {% if order.status == 'shipped' or order.status == 'delivered' %}background:var(--success);color:#fff;font-weight:800;
+          {% elif order.status == 'processing' %}background:var(--primary);color:#fff;box-shadow:0 0 0 4px rgba(124,58,237,.2);font-weight:800;
+          {% else %}background:var(--border);color:var(--text-light);{% endif %}"
+          {% if order.status == 'processing' %}aria-current="step"{% endif %}>
+          {% if order.status == 'shipped' or order.status == 'delivered' %}✓{% else %}⚙️{% endif %}
+        </div>
+        <span style="font-size:.7rem;margin-top:.375rem;text-align:center;font-weight:{% if order.status == 'processing' %}700{% else %}500{% endif %};color:{% if order.status == 'shipped' or order.status == 'delivered' %}var(--success){% elif order.status == 'processing' %}var(--primary){% else %}var(--text-light){% endif %}">Processing</span>
+      </div>
+
+      <!-- Step: Shipped -->
+      <div role="listitem" style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:72px;position:relative">
+        <div style="position:absolute;top:18px;left:-50%;right:-50%;width:200%;height:2px;z-index:0;
+          background:{% if order.status == 'shipped' or order.status == 'delivered' %}var(--primary){% else %}var(--border){% endif %}"></div>
+        <div style="width:36px;height:36px;border-radius:50%;z-index:1;display:flex;align-items:center;justify-content:center;font-size:.9rem;
+          {% if order.status == 'delivered' %}background:var(--success);color:#fff;font-weight:800;
+          {% elif order.status == 'shipped' %}background:var(--primary);color:#fff;box-shadow:0 0 0 4px rgba(124,58,237,.2);font-weight:800;
+          {% else %}background:var(--border);color:var(--text-light);{% endif %}"
+          {% if order.status == 'shipped' %}aria-current="step"{% endif %}>
+          {% if order.status == 'delivered' %}✓{% else %}🚚{% endif %}
+        </div>
+        <span style="font-size:.7rem;margin-top:.375rem;text-align:center;font-weight:{% if order.status == 'shipped' %}700{% else %}500{% endif %};color:{% if order.status == 'delivered' %}var(--success){% elif order.status == 'shipped' %}var(--primary){% else %}var(--text-light){% endif %}">Shipped</span>
+      </div>
+
+      <!-- Step: Delivered -->
+      <div role="listitem" style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:72px;position:relative">
+        <div style="position:absolute;top:18px;right:50%;left:-50%;width:100%;height:2px;z-index:0;
+          background:{% if order.status == 'delivered' %}var(--success){% else %}var(--border){% endif %}"></div>
+        <div style="width:36px;height:36px;border-radius:50%;z-index:1;display:flex;align-items:center;justify-content:center;font-size:.9rem;
+          {% if order.status == 'delivered' %}background:var(--success);color:#fff;font-weight:800;box-shadow:0 0 0 4px rgba(16,185,129,.2);
+          {% else %}background:var(--border);color:var(--text-light);{% endif %}"
+          {% if order.status == 'delivered' %}aria-current="step"{% endif %}>
+          {% if order.status == 'delivered' %}✓{% else %}📦{% endif %}
+        </div>
+        <span style="font-size:.7rem;margin-top:.375rem;text-align:center;font-weight:{% if order.status == 'delivered' %}700{% else %}500{% endif %};color:{% if order.status == 'delivered' %}var(--success){% else %}var(--text-light){% endif %}">Delivered</span>
+      </div>
+
+    </div>
+    {% endif %}
+  </div>
+
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.5rem">
     <div class="card">
       <h2 class="card-title">Shipping Address</h2>

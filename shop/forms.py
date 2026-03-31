@@ -123,7 +123,7 @@ class ProductForm(forms.ModelForm):
         model = Product
         fields = [
             'name', 'category', 'brand', 'description', 'short_description',
-            'price', 'sale_price', 'image', 'color', 'size', 'stock',
+            'price', 'sale_price', 'image', 'video_demo', 'color', 'size', 'stock',
             'tags', 'is_featured', 'is_active',
         ]
         widgets = {
@@ -135,6 +135,10 @@ class ProductForm(forms.ModelForm):
             'price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'sale_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'image': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+            'video_demo': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'video/mp4,video/webm,video/*',
+            }),
             'color': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Red, Blue, Black'}),
             'size': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. S,M,L,XL'}),
             'stock': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
