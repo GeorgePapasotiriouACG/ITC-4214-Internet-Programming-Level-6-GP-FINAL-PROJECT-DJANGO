@@ -75,19 +75,19 @@
           <tbody>
             {% for cat in categories %}
             <tr>
-              <td>
+              <td data-label="Name">
                 <span aria-hidden="true">{{ cat.icon }}</span>
                 {% if cat.parent %}&nbsp;&nbsp;↳&nbsp;{% endif %}
                 <strong>{{ cat.name }}</strong>
               </td>
-              <td>{{ cat.parent.name|default:"—" }}</td>
-              <td>{{ cat.products.count }}</td>
-              <td>
+              <td data-label="Parent">{{ cat.parent.name|default:"—" }}</td>
+              <td data-label="Products">{{ cat.products.count }}</td>
+              <td data-label="Status">
                 {% if cat.is_active %}<span class="status-badge status-delivered">Active</span>
                 {% else %}<span class="status-badge status-cancelled">Inactive</span>{% endif %}
               </td>
-              <td>
-                <div style="display:flex;gap:.375rem">
+              <td data-label="Actions">
+                <div style="display:flex;gap:.375rem;flex-wrap:wrap">
                   <a href="?edit={{ cat.pk }}" class="btn btn-ghost btn-sm">Edit</a>
                   <form method="post" action="{% url 'shop:admin_category_delete' cat.pk %}"
                         onsubmit="return confirm('Delete {{ cat.name|escapejs }}? Products in it will be affected.')">

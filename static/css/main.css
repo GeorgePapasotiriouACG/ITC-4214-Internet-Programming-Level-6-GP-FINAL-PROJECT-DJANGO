@@ -710,7 +710,7 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
 .admin-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; }
 .admin-title { font-size: 1.5rem; font-weight: 800; color: var(--dark); }
 
-.admin-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); }
+.admin-table { width: 100%; min-width: 560px; border-collapse: collapse; background: #fff; border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); }
 .admin-table thead { background: var(--light); }
 .admin-table th { padding: .875rem 1rem; text-align: left; font-size: .8125rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-light); border-bottom: 2px solid var(--border); }
 .admin-table td { padding: .875rem 1rem; font-size: .9rem; color: var(--text); border-bottom: 1px solid var(--border); vertical-align: middle; }
@@ -1086,7 +1086,17 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
   .footer-grid { grid-template-columns: 1fr 1fr; }
   .dashboard-layout { grid-template-columns: 1fr; }
   .admin-layout { grid-template-columns: 1fr; }
-  .admin-sidebar { display: none; }
+  .admin-mobile-bar { display: flex; }
+  .admin-sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 1020;
+    width: min(260px, 85vw);
+    transform: translateX(-105%);
+    transition: transform .3s cubic-bezier(.4,0,.2,1);
+    overflow-y: auto;
+  }
+  .admin-sidebar.mobile-open { transform: translateX(0); }
+  .admin-sidebar-close { display: flex; }
+  .admin-main { padding: 1rem; }
 }
 @media (max-width: 768px) {
   .navbar-search { display: none; }
@@ -1200,6 +1210,18 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
 
   /* Proactive bubble: smaller */
   .ai-proactive-bubble { max-width: calc(100vw - 2rem); right: .5rem; }
+
+  /* Admin panel mobile */
+  .dashboard-grid { grid-template-columns: 1fr; }
+  .charts-double-grid { grid-template-columns: 1fr; }
+  .admin-content-header { flex-direction: column; align-items: flex-start; }
+  .admin-filter-bar { width: 100%; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  /* Make tables scrollable horizontally */
+  .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .admin-main table { min-width: 600px; }
+  /* Charts — cap height on mobile */
+  canvas { max-height: 250px; }
 }
 
 /* ── Checkout ──────────────────────────────────────────── */
@@ -1498,13 +1520,52 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
 .stat-label { font-size: .8125rem; color: var(--text-light); margin-top: .25rem; }
 .stat-link { font-size: .75rem; color: var(--primary); font-weight: 600; display: inline-block; margin-top: .5rem; }
 .dashboard-grid { display: grid; grid-template-columns: 1fr 320px; gap: 1.5rem; align-items: start; }
+.charts-double-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
 
 /* ── Admin extras ───────────────────────────────────────── */
-.admin-sidebar-title { padding: 0 1.25rem 1.5rem; font-size: 1rem; font-weight: 800; color: var(--primary-light); border-bottom: 1px solid rgba(255,255,255,.1); margin-bottom: .5rem; }
+.admin-sidebar-title {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.25rem 1.25rem; font-size: 1rem; font-weight: 800;
+  color: var(--primary-light); border-bottom: 1px solid rgba(255,255,255,.1);
+  margin-bottom: .5rem;
+}
+.admin-sidebar-close {
+  display: none; background: none; border: none; cursor: pointer;
+  color: rgba(255,255,255,.6); padding: .25rem; border-radius: 50%;
+  transition: background var(--transition), color var(--transition);
+}
+.admin-sidebar-close:hover { background: rgba(255,255,255,.1); color: #fff; }
 .admin-nav-link { display: flex; align-items: center; gap: .75rem; padding: .75rem 1.25rem; font-size: .875rem; color: rgba(255,255,255,.7); transition: all var(--transition); }
 .admin-nav-link:hover, .admin-nav-link.active { color: #fff; background: rgba(255,255,255,.08); }
 .admin-nav-link svg { width: 18px; height: 18px; flex-shrink: 0; }
 .admin-main { padding: 2rem; background: var(--light); min-height: 100vh; }
+
+/* ── Admin mobile top bar ───────────────────────────────── */
+.admin-mobile-bar {
+  display: none; position: sticky; top: 0; z-index: 1020;
+  background: #1e1b4b; padding: .625rem 1rem;
+  align-items: center; justify-content: space-between; gap: .75rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,.3);
+}
+.admin-mobile-menu-btn {
+  background: none; border: none; cursor: pointer;
+  color: rgba(255,255,255,.85); padding: .25rem;
+  display: flex; align-items: center;
+}
+.admin-mobile-title { font-size: .9375rem; font-weight: 700; color: #fff; flex: 1; text-align: center; }
+.admin-mobile-home {
+  color: rgba(255,255,255,.7); display: flex; align-items: center;
+  transition: color var(--transition);
+}
+.admin-mobile-home:hover { color: #fff; }
+
+/* ── Admin sidebar overlay (mobile) ────────────────────── */
+.admin-sidebar-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.5); z-index: 1015;
+  backdrop-filter: blur(2px);
+}
+.admin-sidebar-overlay.active { display: block; }
 .admin-content-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
 .admin-page-title { font-size: 1.5rem; font-weight: 800; color: var(--dark); }
 .admin-filter-bar { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; }
@@ -2420,10 +2481,10 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
 .compare-bar-actions { display: flex; gap: .75rem; flex-shrink: 0; }
 .compare-bar-count { color: rgba(255,255,255,.7); font-size: .8rem; }
 
-/* Comparison modal */
+/* Comparison modal — must be above navbar (1000) and compare bar (950) */
 .compare-modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,.65);
-  z-index: 900; display: flex; align-items: center; justify-content: center;
+  z-index: 1200; display: flex; align-items: center; justify-content: center;
   padding: 1rem; opacity: 0; pointer-events: none;
   transition: opacity .25s;
 }
@@ -2822,3 +2883,129 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
 [data-theme="dark"] .a11y-panel-title { color: var(--text); }
 [data-theme="dark"] .a11y-toggle-btn { color: var(--text); border-color: rgba(255,255,255,.15); }
 [data-theme="dark"] .a11y-size-btn { color: var(--text); border-color: rgba(255,255,255,.15); }
+
+/* ════════════════════════════════════════════════════════════
+   FORCED MOBILE OVERRIDES
+   Must appear LAST to beat all late-defined global blocks
+   ════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Comparison bar — stays at the bottom but BEHIND the mobile bottom nav */
+  .compare-bar {
+    bottom: 0 !important;
+    top: auto !important;
+    z-index: 895 !important;   /* below bottom-nav z-index: 900 */
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+    transform: translateY(100%) !important;
+  }
+  .compare-bar.visible {
+    transform: translateY(0) !important;
+  }
+  /* Accessibility hub — exact left-side mirror of AI chat */
+  .a11y-hub {
+    position: fixed !important;
+    bottom: 5.5rem !important;
+    left: .75rem !important;
+    right: auto !important;
+    z-index: 910 !important;
+  }
+  /* AI chat widget */
+  .ai-chat-widget {
+    bottom: 5.5rem !important;
+    right: .75rem !important;
+  }
+  /* Scroll-to-top — stacked above AI chat on the right */
+  .scroll-top-btn {
+    bottom: 9.5rem !important;
+    right: .75rem !important;
+  }
+  /* Proactive AI bubble — sits directly above the AI chat button */
+  .ai-proactive-bubble {
+    bottom: calc(5.5rem + 68px) !important;
+    right: .75rem !important;
+    max-width: calc(100vw - 5.5rem) !important;
+  }
+  /* a11y options fan on mobile — arc goes UP and to the RIGHT */
+  .a11y-hub.open .a11y-opt:nth-child(1) {
+    transform: translate(0px, -110px) scale(1) !important;
+  }
+  .a11y-hub.open .a11y-opt:nth-child(2) {
+    transform: translate(40px, -102px) scale(1) !important;
+  }
+  .a11y-hub.open .a11y-opt:nth-child(3) {
+    transform: translate(77px, -77px) scale(1) !important;
+  }
+  .a11y-hub.open .a11y-opt:nth-child(4) {
+    transform: translate(102px, -40px) scale(1) !important;
+  }
+  .a11y-hub.open .a11y-opt:nth-child(5) {
+    transform: translate(110px, 0px) scale(1) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* On very narrow screens reduce the arc radius slightly */
+  .a11y-hub.open .a11y-opt:nth-child(1) {
+    transform: translate(0px, -96px) scale(1) !important;
+  }
+  .a11y-hub.open .a11y-opt:nth-child(2) {
+    transform: translate(35px, -90px) scale(1) !important;
+  }
+  .a11y-hub.open .a11y-opt:nth-child(3) {
+    transform: translate(68px, -68px) scale(1) !important;
+  }
+  .a11y-hub.open .a11y-opt:nth-child(4) {
+    transform: translate(90px, -35px) scale(1) !important;
+  }
+  .a11y-hub.open .a11y-opt:nth-child(5) {
+    transform: translate(96px, 0px) scale(1) !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   ADMIN TABLE MOBILE CARDS
+   Converts table rows to stacked cards on narrow screens
+   ════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  /* Fix: allow table containers to scroll horizontally */
+  .admin-main { overflow-x: auto !important; }
+  .table-responsive,
+  .admin-main > .card > div[style*="overflow"] { overflow-x: auto !important; }
+
+  /* Card-style rows for admin tables */
+  .admin-table, .admin-table thead, .admin-table tbody,
+  .admin-table th, .admin-table td, .admin-table tr {
+    display: block;
+  }
+  .admin-table thead { display: none; }
+  .admin-table tr {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: var(--radius); margin-bottom: .75rem;
+    padding: .75rem 1rem; box-shadow: var(--shadow-sm);
+  }
+  .admin-table td {
+    padding: .35rem 0; font-size: .875rem; border: none;
+    display: flex; align-items: flex-start; gap: .5rem;
+  }
+  .admin-table td::before {
+    content: attr(data-label);
+    font-weight: 700; font-size: .75rem; color: var(--text-light);
+    text-transform: uppercase; letter-spacing: .04em;
+    min-width: 90px; flex-shrink: 0;
+  }
+  /* Min-width reset since we no longer need horizontal scroll */
+  .admin-table { min-width: unset !important; }
+  [data-theme="dark"] .admin-table tr { background: var(--dark-surface); }
+
+  /* Admin filter bar: stack vertically */
+  .admin-filter-bar { flex-direction: column; align-items: stretch; }
+  .admin-filter-bar .form-control,
+  .admin-filter-bar select { width: 100% !important; max-width: 100% !important; }
+  .admin-filter-bar .btn { align-self: flex-start; }
+
+  /* Admin content header: stack on tiny screens */
+  .admin-content-header { flex-direction: column; align-items: flex-start; gap: .75rem; }
+  .admin-page-title { font-size: 1.25rem; }
+
+  /* Stat grid: 1 column on very small */
+  .stat-grid { grid-template-columns: 1fr !important; }
+}

@@ -38,19 +38,19 @@
       <tbody>
         {% for order in orders %}
         <tr>
-          <td>
+          <td data-label="Order #">
             <a href="{% url 'shop:order_detail' order.order_number %}" class="text-primary font-bold">{{ order.order_number }}</a>
           </td>
-          <td>
+          <td data-label="Customer">
             <div style="font-weight:600">{{ order.full_name }}</div>
             <div style="font-size:.75rem;color:var(--text-light)">{{ order.email }}</div>
           </td>
-          <td>{{ order.items.count }}</td>
-          <td><strong style="color:var(--primary)">${{ order.total_amount }}</strong></td>
-          <td><span class="status-badge status-{{ order.status }}">{{ order.get_status_display }}</span></td>
-          <td>{{ order.created_at|date:"N j, Y" }}</td>
-          <td>
-            <form method="post" action="{% url 'shop:admin_order_status' order.order_number %}" style="display:flex;gap:.375rem;align-items:center">
+          <td data-label="Items">{{ order.items.count }}</td>
+          <td data-label="Total"><strong style="color:var(--primary)">${{ order.total_amount }}</strong></td>
+          <td data-label="Status"><span class="status-badge status-{{ order.status }}">{{ order.get_status_display }}</span></td>
+          <td data-label="Date">{{ order.created_at|date:"N j, Y" }}</td>
+          <td data-label="Update">
+            <form method="post" action="{% url 'shop:admin_order_status' order.order_number %}" style="display:flex;gap:.375rem;align-items:center;flex-wrap:wrap">
               {% csrf_token %}
               <select name="status" class="form-control" style="width:auto;padding:.25rem .5rem;font-size:.8rem" aria-label="Change status for order {{ order.order_number }}">
                 <option value="pending" {% if order.status == 'pending' %}selected{% endif %}>Pending</option>

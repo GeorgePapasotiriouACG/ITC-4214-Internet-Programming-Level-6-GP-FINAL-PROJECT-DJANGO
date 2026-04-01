@@ -37,7 +37,7 @@
       <tbody>
         {% for product in products %}
         <tr>
-          <td>
+          <td data-label="Product">
             <div style="display:flex;align-items:center;gap:.75rem">
               {% if product.image %}
                 <img src="{{ product.image.url }}" alt="{{ product.name }}" style="width:44px;height:44px;object-fit:cover;border-radius:var(--radius-sm)" loading="lazy">
@@ -45,19 +45,19 @@
                 <div style="width:44px;height:44px;background:var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center" aria-hidden="true">📦</div>
               {% endif %}
               <div>
-                <div style="font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ product.name }}</div>
+                <div style="font-weight:600">{{ product.name }}</div>
                 <div style="font-size:.75rem;color:var(--text-light)">{{ product.sku }}</div>
               </div>
             </div>
           </td>
-          <td>{{ product.category.name }}</td>
-          <td>
-            {% if product.is_on_sale %}<span style="color:var(--error);font-weight:700">${{ product.sale_price }}</span><br><span style="text-decoration:line-through;color:var(--text-light);font-size:.8rem">${{ product.price }}</span>
+          <td data-label="Category">{{ product.category.name }}</td>
+          <td data-label="Price">
+            {% if product.is_on_sale %}<span style="color:var(--error);font-weight:700">${{ product.sale_price }}</span> <span style="text-decoration:line-through;color:var(--text-light);font-size:.8rem">${{ product.price }}</span>
             {% else %}<strong>${{ product.price }}</strong>{% endif %}
           </td>
-          <td><span style="color:{% if product.stock > 10 %}var(--success){% elif product.stock > 0 %}var(--warning){% else %}var(--error){% endif %};font-weight:600">{{ product.stock }}</span></td>
-          <td>{% if product.retailer %}{{ product.retailer.get_full_name|default:product.retailer.username }}{% else %}<span style="color:var(--text-light)">TrendMart</span>{% endif %}</td>
-          <td>
+          <td data-label="Stock"><span style="color:{% if product.stock > 10 %}var(--success){% elif product.stock > 0 %}var(--warning){% else %}var(--error){% endif %};font-weight:600">{{ product.stock }}</span></td>
+          <td data-label="Retailer">{% if product.retailer %}{{ product.retailer.get_full_name|default:product.retailer.username }}{% else %}<span style="color:var(--text-light)">TrendMart</span>{% endif %}</td>
+          <td data-label="Status">
             {% if not product.is_approved %}
               <span class="status-badge" style="background:#FEF3C7;color:#92400E">Pending</span>
             {% elif product.is_active %}
@@ -66,7 +66,7 @@
               <span class="status-badge status-cancelled">Inactive</span>
             {% endif %}
           </td>
-          <td>
+          <td data-label="Actions">
             <div style="display:flex;gap:.375rem;flex-wrap:wrap">
               {% if not product.is_approved %}
                 <a href="{% url 'shop:admin_product_approve' product.pk %}" class="btn btn-sm" style="background:var(--success);color:#fff;white-space:nowrap">Approve</a>

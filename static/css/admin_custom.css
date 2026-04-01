@@ -1,0 +1,667 @@
+/* =============================================================================
+   TrendMart — Custom Django Admin Theme
+   Author: George Papasotiriou | Project: TrendMart
+   ============================================================================= */
+
+/* ── Google Font ─────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+/* ── CSS Variables ───────────────────────────────────────── */
+:root {
+  --tm-primary:      #7c3aed;
+  --tm-primary-dark: #5b21b6;
+  --tm-accent:       #a855f7;
+  --tm-bg:           #f5f3ff;
+  --tm-surface:      #ffffff;
+  --tm-border:       #e5e7eb;
+  --tm-text:         #1f2937;
+  --tm-text-light:   #6b7280;
+  --tm-success:      #10b981;
+  --tm-error:        #ef4444;
+  --tm-warning:      #f59e0b;
+  --tm-radius:       10px;
+  --tm-shadow:       0 1px 3px rgba(0,0,0,.08), 0 4px 12px rgba(0,0,0,.06);
+  --tm-shadow-lg:    0 8px 30px rgba(124,58,237,.15);
+}
+
+/* ── Base ─────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+html, body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  background: var(--tm-bg) !important;
+  color: var(--tm-text) !important;
+  font-size: 14px !important;
+}
+
+/* ── Header / Branding ──────────────────────────────────── */
+#header {
+  background: linear-gradient(135deg, #1e1b4b 0%, var(--tm-primary-dark) 60%, var(--tm-primary) 100%) !important;
+  box-shadow: 0 2px 20px rgba(124,58,237,.4) !important;
+  padding: 0 !important;
+  height: 60px !important;
+  display: flex !important;
+  align-items: center !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1000 !important;
+}
+#header #branding {
+  padding: 0 1.5rem !important;
+  flex: 1 !important;
+}
+#header h1 {
+  font-size: 1.25rem !important;
+  font-weight: 800 !important;
+  letter-spacing: -.02em !important;
+  color: #fff !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+#header h1 a {
+  color: #fff !important;
+  text-decoration: none !important;
+}
+#header h1 a::before {
+  content: '🛍️ ';
+}
+#user-tools {
+  padding: 0 1.5rem !important;
+  font-size: .8125rem !important;
+  color: rgba(255,255,255,.8) !important;
+}
+#user-tools a {
+  color: rgba(255,255,255,.9) !important;
+  border-bottom: 1px solid rgba(255,255,255,.3) !important;
+  transition: color .15s, border-color .15s !important;
+}
+#user-tools a:hover {
+  color: #fff !important;
+  border-color: #fff !important;
+}
+
+/* ── Breadcrumbs ──────────────────────────────────────────── */
+div.breadcrumbs {
+  background: linear-gradient(90deg, var(--tm-primary-dark), var(--tm-primary)) !important;
+  color: rgba(255,255,255,.7) !important;
+  padding: .625rem 1.5rem !important;
+  font-size: .8rem !important;
+  font-weight: 500 !important;
+}
+div.breadcrumbs a {
+  color: rgba(255,255,255,.85) !important;
+  text-decoration: none !important;
+}
+div.breadcrumbs a:hover { color: #fff !important; }
+
+/* ── Content area ────────────────────────────────────────── */
+#content-main { padding: 1.5rem !important; }
+#content { background: transparent !important; }
+
+/* ── Sidebar / module nav ─────────────────────────────────── */
+#nav-sidebar {
+  background: #1e1b4b !important;
+  border-right: 1px solid rgba(255,255,255,.08) !important;
+}
+#nav-sidebar .module caption,
+#nav-sidebar .current-app .module__name {
+  background: rgba(124,58,237,.3) !important;
+  color: var(--tm-accent) !important;
+  font-weight: 700 !important;
+  font-size: .75rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: .06em !important;
+  padding: .625rem 1rem !important;
+}
+#nav-sidebar a {
+  color: rgba(255,255,255,.75) !important;
+  font-size: .8125rem !important;
+  padding: .5rem 1rem !important;
+  display: block !important;
+  transition: background .15s, color .15s !important;
+  border-radius: 0 !important;
+}
+#nav-sidebar a:hover,
+#nav-sidebar .selected a {
+  background: rgba(124,58,237,.25) !important;
+  color: #fff !important;
+}
+#nav-sidebar #search-bar { padding: .75rem !important; }
+#nav-sidebar #searchbar {
+  background: rgba(255,255,255,.08) !important;
+  border: 1px solid rgba(255,255,255,.15) !important;
+  border-radius: 8px !important;
+  color: #fff !important;
+  padding: .5rem .75rem !important;
+  width: 100% !important;
+  font-size: .8125rem !important;
+}
+#nav-sidebar #searchbar::placeholder { color: rgba(255,255,255,.4) !important; }
+
+/* ── Module boxes ────────────────────────────────────────── */
+.module {
+  background: var(--tm-surface) !important;
+  border-radius: var(--tm-radius) !important;
+  border: 1px solid var(--tm-border) !important;
+  box-shadow: var(--tm-shadow) !important;
+  margin-bottom: 1.5rem !important;
+  overflow: hidden !important;
+  animation: tmFadeIn .3s ease both !important;
+}
+@keyframes tmFadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.module caption, .module > h2 {
+  background: linear-gradient(90deg, var(--tm-primary), var(--tm-accent)) !important;
+  color: #fff !important;
+  font-size: .8125rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .05em !important;
+  padding: .75rem 1.25rem !important;
+}
+.module table { width: 100% !important; border-collapse: collapse !important; }
+.module table th {
+  background: #faf5ff !important;
+  color: var(--tm-text-light) !important;
+  font-size: .75rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .05em !important;
+  padding: .625rem 1rem !important;
+  border-bottom: 2px solid var(--tm-border) !important;
+}
+.module table td {
+  padding: .75rem 1rem !important;
+  border-bottom: 1px solid var(--tm-border) !important;
+  vertical-align: middle !important;
+  font-size: .875rem !important;
+}
+.module table tr:last-child td { border-bottom: none !important; }
+.module table tr:hover td { background: #faf5ff !important; }
+
+/* ── App index (site administration) ─────────────────────── */
+#content-main .app-shop,
+#content-main .app-auth {
+  animation: tmFadeIn .35s ease both !important;
+}
+.app-list tr th a,
+.model-list th a {
+  color: var(--tm-primary) !important;
+  font-weight: 600 !important;
+  font-size: .9rem !important;
+  transition: color .15s !important;
+}
+.app-list tr th a:hover, .model-list th a:hover { color: var(--tm-primary-dark) !important; }
+.app-list .addlink, .addlink {
+  background: linear-gradient(135deg, var(--tm-success), #059669) !important;
+  color: #fff !important;
+  padding: .25rem .75rem !important;
+  border-radius: 6px !important;
+  font-size: .75rem !important;
+  font-weight: 700 !important;
+  text-decoration: none !important;
+  transition: opacity .15s, transform .15s !important;
+  display: inline-flex !important; align-items: center !important; gap: .25rem !important;
+}
+.app-list .addlink:hover, .addlink:hover { opacity: .9 !important; transform: translateY(-1px) !important; }
+.app-list .changelink, .changelink {
+  background: linear-gradient(135deg, var(--tm-primary), var(--tm-accent)) !important;
+  color: #fff !important;
+  padding: .25rem .75rem !important;
+  border-radius: 6px !important;
+  font-size: .75rem !important;
+  font-weight: 700 !important;
+  text-decoration: none !important;
+  transition: opacity .15s, transform .15s !important;
+  display: inline-flex !important; align-items: center !important; gap: .25rem !important;
+}
+.app-list .changelink:hover, .changelink:hover { opacity: .9 !important; transform: translateY(-1px) !important; }
+
+/* ── Change list (object list) ───────────────────────────── */
+#changelist-filter {
+  background: var(--tm-surface) !important;
+  border: 1px solid var(--tm-border) !important;
+  border-radius: var(--tm-radius) !important;
+  box-shadow: var(--tm-shadow) !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+#changelist-filter h2 {
+  background: linear-gradient(90deg, var(--tm-primary), var(--tm-accent)) !important;
+  color: #fff !important;
+  font-size: .75rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .06em !important;
+  padding: .75rem 1rem !important;
+  margin: 0 !important;
+}
+#changelist-filter h3 {
+  color: var(--tm-primary) !important;
+  font-size: .75rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .05em !important;
+  padding: .75rem 1rem .25rem !important;
+  margin: 0 !important;
+  border-top: 1px solid var(--tm-border) !important;
+}
+#changelist-filter ul { padding: 0 1rem .75rem !important; list-style: none !important; margin: 0 !important; }
+#changelist-filter ul li a {
+  color: var(--tm-text) !important;
+  font-size: .8125rem !important;
+  padding: .25rem 0 !important;
+  display: block !important;
+  transition: color .15s !important;
+  text-decoration: none !important;
+}
+#changelist-filter ul li.selected a { color: var(--tm-primary) !important; font-weight: 600 !important; }
+#changelist-filter ul li a:hover { color: var(--tm-primary) !important; }
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.button, input[type="submit"], input[type="button"], .submit-row input, a.button {
+  background: linear-gradient(135deg, var(--tm-primary), var(--tm-primary-dark)) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: .5rem 1.25rem !important;
+  font-family: 'Inter', sans-serif !important;
+  font-weight: 600 !important;
+  font-size: .875rem !important;
+  cursor: pointer !important;
+  transition: opacity .15s, transform .15s, box-shadow .15s !important;
+  box-shadow: 0 4px 12px rgba(124,58,237,.3) !important;
+}
+.button:hover, input[type="submit"]:hover, input[type="button"]:hover,
+.submit-row input:hover, a.button:hover {
+  opacity: .92 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 16px rgba(124,58,237,.4) !important;
+}
+.button.default, input[type="submit"].default, .submit-row input.default {
+  background: linear-gradient(135deg, var(--tm-success), #059669) !important;
+  box-shadow: 0 4px 12px rgba(16,185,129,.3) !important;
+}
+.deletelink, .deletelink-box a {
+  background: linear-gradient(135deg, var(--tm-error), #dc2626) !important;
+  box-shadow: 0 4px 12px rgba(239,68,68,.25) !important;
+}
+
+/* ── Forms ───────────────────────────────────────────────── */
+.form-row { padding: .75rem 1.25rem !important; border-bottom: 1px solid var(--tm-border) !important; }
+.form-row:last-child { border-bottom: none !important; }
+fieldset {
+  background: var(--tm-surface) !important;
+  border: 1px solid var(--tm-border) !important;
+  border-radius: var(--tm-radius) !important;
+  margin-bottom: 1.25rem !important;
+  box-shadow: var(--tm-shadow) !important;
+}
+fieldset h2 {
+  background: linear-gradient(90deg, var(--tm-primary), var(--tm-accent)) !important;
+  color: #fff !important;
+  font-size: .8rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .05em !important;
+  padding: .75rem 1.25rem !important;
+  margin: 0 !important;
+  border-radius: var(--tm-radius) var(--tm-radius) 0 0 !important;
+}
+label { font-weight: 600 !important; color: var(--tm-text) !important; font-size: .8125rem !important; }
+input[type="text"], input[type="password"], input[type="email"], input[type="number"],
+input[type="url"], input[type="search"], textarea, select {
+  border: 1.5px solid var(--tm-border) !important;
+  border-radius: 8px !important;
+  padding: .5rem .75rem !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: .875rem !important;
+  color: var(--tm-text) !important;
+  background: #fff !important;
+  transition: border-color .2s, box-shadow .2s !important;
+}
+input[type="text"]:focus, input[type="password"]:focus, input[type="email"]:focus,
+input[type="number"]:focus, textarea:focus, select:focus {
+  border-color: var(--tm-primary) !important;
+  box-shadow: 0 0 0 3px rgba(124,58,237,.12) !important;
+  outline: none !important;
+}
+
+/* ── Messages ────────────────────────────────────────────── */
+ul.messagelist { padding: 0 !important; margin: 0 0 1rem !important; list-style: none !important; }
+ul.messagelist li {
+  padding: .75rem 1.25rem .75rem 3rem !important;
+  border-radius: var(--tm-radius) !important;
+  margin-bottom: .5rem !important;
+  font-weight: 600 !important;
+  font-size: .875rem !important;
+  position: relative !important;
+  animation: tmFadeIn .3s ease !important;
+}
+ul.messagelist li.success {
+  background: #d1fae5 !important;
+  color: #065f46 !important;
+  border-left: 4px solid var(--tm-success) !important;
+}
+ul.messagelist li.warning {
+  background: #fef3c7 !important;
+  color: #92400e !important;
+  border-left: 4px solid var(--tm-warning) !important;
+}
+ul.messagelist li.error {
+  background: #fee2e2 !important;
+  color: #991b1b !important;
+  border-left: 4px solid var(--tm-error) !important;
+}
+
+/* ── Pagination ──────────────────────────────────────────── */
+.paginator {
+  background: var(--tm-surface) !important;
+  border-top: 1px solid var(--tm-border) !important;
+  padding: .75rem 1rem !important;
+  font-size: .8125rem !important;
+  color: var(--tm-text-light) !important;
+}
+.paginator a {
+  background: var(--tm-primary) !important;
+  color: #fff !important;
+  padding: .25rem .625rem !important;
+  border-radius: 6px !important;
+  text-decoration: none !important;
+  font-weight: 600 !important;
+  transition: opacity .15s !important;
+}
+.paginator a:hover { opacity: .85 !important; }
+.paginator .this-page {
+  background: #faf5ff !important;
+  color: var(--tm-primary) !important;
+  padding: .25rem .625rem !important;
+  border-radius: 6px !important;
+  font-weight: 700 !important;
+  border: 1.5px solid var(--tm-primary) !important;
+}
+
+/* ── Recent actions sidebar ──────────────────────────────── */
+#recent-actions-module h2 { margin: 0 !important; }
+#recent-actions-module ul { padding: .5rem 0 !important; margin: 0 !important; list-style: none !important; }
+#recent-actions-module li {
+  padding: .5rem 1rem !important;
+  border-bottom: 1px solid var(--tm-border) !important;
+  font-size: .8125rem !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: .5rem !important;
+}
+#recent-actions-module li:last-child { border-bottom: none !important; }
+#recent-actions-module .addlink { font-size: .7rem !important; padding: .1rem .4rem !important; }
+#recent-actions-module .changelink { font-size: .7rem !important; padding: .1rem .4rem !important; }
+#recent-actions-module a.changelink { display: inline !important; }
+
+/* ── Object tools (history/delete/etc) ───────────────────── */
+.object-tools { padding-bottom: .75rem !important; }
+.object-tools a {
+  background: rgba(124,58,237,.1) !important;
+  color: var(--tm-primary) !important;
+  border: 1.5px solid var(--tm-primary) !important;
+  border-radius: 8px !important;
+  padding: .375rem .875rem !important;
+  font-size: .8125rem !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+  transition: background .15s, color .15s !important;
+}
+.object-tools a:hover {
+  background: var(--tm-primary) !important;
+  color: #fff !important;
+}
+.object-tools li { display: inline-block !important; margin-left: .5rem !important; }
+
+/* ── Dashboard stat-like app groups ─────────────────────── */
+#content-main > .app-auth,
+#content-main > .app-shop {
+  transition: box-shadow .2s, transform .2s !important;
+}
+#content-main > .app-auth:hover,
+#content-main > .app-shop:hover {
+  box-shadow: var(--tm-shadow-lg) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* ── Login page ──────────────────────────────────────────── */
+body.login {
+  background: linear-gradient(135deg, #1e1b4b 0%, #4c1d95 50%, #7c3aed 100%) !important;
+  min-height: 100vh !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+body.login #container {
+  background: transparent !important;
+  min-width: unset !important;
+  width: 100% !important;
+}
+body.login #header {
+  display: none !important;
+}
+body.login #content-main {
+  background: #fff !important;
+  border-radius: 16px !important;
+  box-shadow: 0 20px 60px rgba(0,0,0,.3) !important;
+  padding: 2.5rem !important;
+  max-width: 400px !important;
+  margin: 0 auto !important;
+}
+body.login h1 {
+  font-size: 1.5rem !important;
+  font-weight: 800 !important;
+  color: var(--tm-primary) !important;
+  text-align: center !important;
+  margin-bottom: 1.5rem !important;
+}
+body.login h1::before { content: '🛍️ TrendMart — '; }
+body.login .submit-row { background: transparent !important; border: none !important; padding: .5rem 0 0 !important; }
+body.login input[type="submit"] { width: 100% !important; padding: .75rem !important; font-size: 1rem !important; }
+
+/* ── Table action checkboxes ─────────────────────────────── */
+#result_list input[type="checkbox"] { accent-color: var(--tm-primary) !important; }
+#action-bar, .action-counter { color: var(--tm-primary) !important; font-weight: 600 !important; }
+#changelist-form .action-select { accent-color: var(--tm-primary) !important; }
+
+/* ── Misc ─────────────────────────────────────────────────── */
+a { color: var(--tm-primary) !important; }
+a:hover { color: var(--tm-primary-dark) !important; }
+#content-main h1 { font-size: 1.375rem !important; font-weight: 800 !important; color: var(--tm-text) !important; }
+.help { color: var(--tm-text-light) !important; font-size: .8rem !important; }
+.errornote, .errorlist { color: var(--tm-error) !important; }
+.errornote {
+  background: #fee2e2 !important;
+  border: 1px solid #fca5a5 !important;
+  border-radius: 8px !important;
+  padding: .75rem 1rem !important;
+  font-weight: 600 !important;
+}
+hr { border: none !important; border-top: 1px solid var(--tm-border) !important; }
+
+/* ── Scrollbar (webkit) ──────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f1f0ff; }
+::-webkit-scrollbar-thumb { background: #c4b5fd; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--tm-primary); }
+
+/* ── Pulse animation for new/pending items ───────────────── */
+@keyframes tmPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .6; }
+}
+.addlink { animation: tmPulse 3s ease-in-out infinite !important; }
+
+/* ── Theme Toggle Button (Django 4.2+) ───────────────────── */
+#theme-toggle {
+  background: rgba(255,255,255,.12) !important;
+  border: 1.5px solid rgba(255,255,255,.25) !important;
+  border-radius: 20px !important;
+  color: rgba(255,255,255,.9) !important;
+  cursor: pointer !important;
+  padding: .25rem .625rem !important;
+  font-size: .8rem !important;
+  font-weight: 600 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: .3rem !important;
+  transition: background .2s, border-color .2s !important;
+  vertical-align: middle !important;
+  margin-left: .75rem !important;
+}
+#theme-toggle:hover {
+  background: rgba(255,255,255,.22) !important;
+  border-color: rgba(255,255,255,.5) !important;
+}
+#theme-toggle svg {
+  width: 14px !important; height: 14px !important;
+  fill: currentColor !important;
+  flex-shrink: 0 !important;
+}
+/* Hide the text label on very small screens, keep icon only */
+@media (max-width: 480px) {
+  #theme-toggle .theme-toggle-text { display: none !important; }
+}
+
+/* ── Dark Mode (Django sets data-theme="dark" on <html>) ─── */
+[data-theme="dark"] {
+  --tm-bg:        #0f0c1a !important;
+  --tm-surface:   #1a1625 !important;
+  --tm-border:    rgba(255,255,255,.1) !important;
+  --tm-text:      #e2e0ee !important;
+  --tm-text-light:#9b97b8 !important;
+}
+
+[data-theme="dark"] html,
+[data-theme="dark"] body {
+  background: #0f0c1a !important;
+  color: #e2e0ee !important;
+}
+
+[data-theme="dark"] #container {
+  background: #0f0c1a !important;
+}
+
+[data-theme="dark"] .module {
+  background: #1a1625 !important;
+  border-color: rgba(255,255,255,.1) !important;
+}
+
+[data-theme="dark"] .module table th {
+  background: rgba(255,255,255,.04) !important;
+  color: #9b97b8 !important;
+  border-color: rgba(255,255,255,.08) !important;
+}
+
+[data-theme="dark"] .module table td {
+  border-color: rgba(255,255,255,.06) !important;
+  color: #e2e0ee !important;
+}
+
+[data-theme="dark"] .module table tr:hover td {
+  background: rgba(124,58,237,.08) !important;
+}
+
+[data-theme="dark"] #content-main {
+  background: transparent !important;
+}
+
+[data-theme="dark"] #content-main h1 {
+  color: #e2e0ee !important;
+}
+
+[data-theme="dark"] fieldset {
+  background: #1a1625 !important;
+  border-color: rgba(255,255,255,.1) !important;
+}
+
+[data-theme="dark"] input[type="text"],
+[data-theme="dark"] input[type="password"],
+[data-theme="dark"] input[type="email"],
+[data-theme="dark"] input[type="number"],
+[data-theme="dark"] input[type="url"],
+[data-theme="dark"] input[type="search"],
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background: #252237 !important;
+  border-color: rgba(255,255,255,.15) !important;
+  color: #e2e0ee !important;
+}
+
+[data-theme="dark"] #changelist-filter {
+  background: #1a1625 !important;
+  border-color: rgba(255,255,255,.1) !important;
+}
+
+[data-theme="dark"] #changelist-filter ul li a {
+  color: #c4b5fd !important;
+}
+
+[data-theme="dark"] .paginator {
+  background: #1a1625 !important;
+  border-color: rgba(255,255,255,.08) !important;
+  color: #9b97b8 !important;
+}
+
+[data-theme="dark"] .paginator .this-page {
+  background: rgba(124,58,237,.2) !important;
+}
+
+[data-theme="dark"] label {
+  color: #c4b5fd !important;
+}
+
+[data-theme="dark"] .help {
+  color: #9b97b8 !important;
+}
+
+[data-theme="dark"] hr {
+  border-color: rgba(255,255,255,.08) !important;
+}
+
+[data-theme="dark"] #nav-sidebar {
+  background: #100d1e !important;
+}
+
+[data-theme="dark"] #recent-actions-module li {
+  border-color: rgba(255,255,255,.06) !important;
+  color: #c4b5fd !important;
+}
+
+[data-theme="dark"] ul.messagelist li.success {
+  background: rgba(16,185,129,.12) !important;
+  color: #6ee7b7 !important;
+}
+
+[data-theme="dark"] ul.messagelist li.warning {
+  background: rgba(245,158,11,.1) !important;
+  color: #fcd34d !important;
+}
+
+[data-theme="dark"] ul.messagelist li.error {
+  background: rgba(239,68,68,.1) !important;
+  color: #fca5a5 !important;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-track { background: #1a1625; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #4c1d95; }
+
+/* ── Mobile ──────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  #header { height: auto !important; padding: .625rem 1rem !important; flex-wrap: wrap !important; gap: .5rem !important; }
+  #user-tools { font-size: .75rem !important; padding-right: .5rem !important; }
+  #user-tools a { font-size: .7rem !important; }
+  #theme-toggle { font-size: .7rem !important; padding: .2rem .4rem !important; }
+  #content-main { padding: 1rem !important; }
+  .module table td, .module table th { padding: .5rem .625rem !important; font-size: .8rem !important; }
+  .button, input[type="submit"] { padding: .5rem .875rem !important; font-size: .8125rem !important; }
+  /* Stack model table rows on mobile */
+  .model-list th, .model-list td { display: block !important; width: 100% !important; }
+  .model-list th { background: none !important; }
+  .model-list .addlink, .model-list .changelink { margin: .15rem 0 !important; }
+}

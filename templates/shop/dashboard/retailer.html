@@ -62,7 +62,7 @@
         <tbody>
           {% for product in my_products %}
           <tr>
-            <td>
+            <td data-label="Product">
               <div style="display:flex;align-items:center;gap:.75rem">
                 {% if product.image %}
                   <img src="{{ product.image.url }}" alt="{{ product.name }}" style="width:40px;height:40px;object-fit:cover;border-radius:var(--radius-sm)" loading="lazy">
@@ -75,8 +75,8 @@
                 </div>
               </div>
             </td>
-            <td>{{ product.category.name }}</td>
-            <td>
+            <td data-label="Category">{{ product.category.name }}</td>
+            <td data-label="Price">
               {% if product.is_on_sale %}
                 <span style="color:var(--error);font-weight:700">${{ product.sale_price }}</span>
                 <span style="color:var(--text-light);text-decoration:line-through;font-size:.8rem">${{ product.price }}</span>
@@ -84,12 +84,12 @@
                 <strong>${{ product.price }}</strong>
               {% endif %}
             </td>
-            <td>
+            <td data-label="Stock">
               <span style="color:{% if product.stock > 10 %}var(--success){% elif product.stock > 0 %}var(--warning){% else %}var(--error){% endif %};font-weight:600">
-                {{ product.stock }}
+                {{ product.stock }} units
               </span>
             </td>
-            <td>
+            <td data-label="Status">
               {% if not product.is_approved %}
                 <span class="status-badge" style="background:#FEF3C7;color:#92400E">Pending</span>
               {% elif product.is_active %}
@@ -98,8 +98,8 @@
                 <span class="status-badge status-cancelled">Inactive</span>
               {% endif %}
             </td>
-            <td>
-              <div style="display:flex;gap:.5rem">
+            <td data-label="Actions">
+              <div style="display:flex;gap:.5rem;flex-wrap:wrap">
                 <a href="{% url 'shop:retailer_edit_product' product.pk %}" class="btn btn-ghost btn-sm">Edit</a>
                 <form method="post" action="{% url 'shop:retailer_delete_product' product.pk %}"
                       onsubmit="return confirm('Delete {{ product.name|escapejs }}?')">

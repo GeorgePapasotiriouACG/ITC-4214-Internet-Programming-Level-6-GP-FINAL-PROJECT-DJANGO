@@ -345,7 +345,7 @@ def product_detail(request, slug):
         Product.objects
         .filter(
             is_active=True, is_approved=True,
-            order_items__order_id__in=co_purchase_ids,
+            orderitem__order_id__in=co_purchase_ids,
         )
         .exclude(id=product.id)
         .annotate(co_count=Count('id'))
@@ -3200,8 +3200,8 @@ def admin_product_performance(request):
     Helps identify top performers and slow-moving inventory.
     """
     products = Product.objects.filter(is_active=True).annotate(
-        total_revenue=Sum(F('order_items__product_price') * F('order_items__quantity')),
-        total_units=Sum('order_items__quantity'),
+        total_revenue=Sum(F('orderitem__product_price') * F('orderitem__quantity')),
+        total_units=Sum('orderitem__quantity'),
         avg_rating=Avg('ratings__rating'),
     ).order_by('-views_count')[:50]
 
