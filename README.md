@@ -69,10 +69,8 @@ A full-stack e-commerce platform built with Django and Vanilla JavaScript. Suppo
 
 ### 🎤 Voice Accessibility Assistant
 - Full-screen voice overlay with ChatGPT-style animated orb
-- Hands-free shopping: *"find me running shoes under $80"* → reads results aloud
-- *"Add the second one"* → confirms and adds to cart via AJAX from any page
-- Navigation commands: *"go to cart"*, *"show my orders"*, *"open FAQ"*
-- Auto-listen (hands-free) mode — mic restarts after each response
+- Hands-free shopping: *"I want a Macbook Pro"* → searches for product
+- Navigation commands (Experimental): *"go to cart"*, *"show my orders"*, *"open FAQ"*
 - Accessibility hub: colour-blind modes, text resize, dyslexia font, high contrast
 
 ### 🛍️ Retailer Portal
