@@ -50,6 +50,14 @@
 
 html { scroll-behavior: smooth; font-size: 16px; overflow-x: hidden; }
 
+/* ── Hide scrollbar globally (keeps scroll functionality) ── */
+html {
+  scrollbar-width: none;        /* Firefox */
+}
+html::-webkit-scrollbar {
+  display: none;                /* Chrome / Safari / Edge */
+}
+
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background: var(--light);
@@ -832,14 +840,58 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
 
 /* ── AI Chat Widget ────────────────────────────────────── */
 .ai-chat-widget { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 900; }
+/* Subtle breathing scale shared by both floating buttons */
+@keyframes subtleBreathe {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.05); }
+}
+
+/* Expanding sonar ring — scales out and fades */
+@keyframes sonarRing {
+  0%   { transform: scale(1);   opacity: .5; }
+  80%  { transform: scale(1.75); opacity: 0; }
+  100% { transform: scale(1.75); opacity: 0; }
+}
+
+/* Soft purple gradient drift — stays in the violet family */
+@keyframes aiColorShift {
+  0%   { background: linear-gradient(135deg, #7c3aed, #a855f7); }
+  50%  { background: linear-gradient(135deg, #6d28d9, #9333ea); }
+  100% { background: linear-gradient(135deg, #7c3aed, #a855f7); }
+}
+
 .ai-chat-trigger {
+  position: relative; overflow: visible;
   width: 58px; height: 58px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
+  background: linear-gradient(135deg, var(--primary), #a855f7);
   color: #fff; box-shadow: 0 8px 25px rgba(124,58,237,.45);
   display: flex; align-items: center; justify-content: center;
-  transition: all var(--transition); font-size: 1.5rem;
+  font-size: 1.5rem;
+  animation: aiColorShift 10s ease-in-out infinite,
+             subtleBreathe 4s ease-in-out 1s infinite;
+  transition: transform .2s;
 }
-.ai-chat-trigger:hover { transform: scale(1.1); box-shadow: 0 12px 30px rgba(124,58,237,.55); }
+.ai-chat-trigger:hover {
+  transform: scale(1.12) !important;
+  animation-play-state: paused;
+}
+
+/* First sonar ring */
+.ai-chat-trigger::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: 50%;
+  background: rgba(124,58,237,.3);
+  animation: sonarRing 3s ease-out infinite;
+  pointer-events: none;
+}
+/* Second ring — offset by half cycle for double-pulse feel */
+.ai-chat-trigger::after {
+  content: '';
+  position: absolute; inset: 0; border-radius: 50%;
+  background: rgba(124,58,237,.18);
+  animation: sonarRing 3s ease-out 1.5s infinite;
+  pointer-events: none;
+}
 .ai-chat-trigger .badge-new-msg {
   position: absolute; top: -3px; right: -3px;
   width: 14px; height: 14px; background: var(--error);
@@ -2566,15 +2618,34 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
 .a11y-main-btn svg { width: 24px; height: 24px; transition: transform .35s cubic-bezier(.34,1.56,.64,1); }
 .a11y-hub.open .a11y-main-btn svg { transform: rotate(45deg); }
 
-/* Smooth colour-shift glow instead of running ring */
+/* Soft gradient — matches AI button, slight phase offset */
 @keyframes a11yColorShift {
-  0%   { background: linear-gradient(135deg, #7c3aed, #a855f7); box-shadow: 0 4px 20px rgba(124,58,237,.4); }
-  33%  { background: linear-gradient(135deg, #6d28d9, #ec4899); box-shadow: 0 4px 22px rgba(236,72,153,.38); }
-  66%  { background: linear-gradient(135deg, #4f46e5, #818cf8); box-shadow: 0 4px 22px rgba(79,70,229,.38); }
-  100% { background: linear-gradient(135deg, #7c3aed, #a855f7); box-shadow: 0 4px 20px rgba(124,58,237,.4); }
+  0%   { background: linear-gradient(135deg, #7c3aed, #a855f7); }
+  50%  { background: linear-gradient(135deg, #6d28d9, #9333ea); }
+  100% { background: linear-gradient(135deg, #7c3aed, #a855f7); }
 }
 .a11y-main-btn {
-  animation: a11yColorShift 6s ease-in-out infinite;
+  position: relative; overflow: visible;
+  animation: a11yColorShift 10s ease-in-out 5s infinite,
+             subtleBreathe 4s ease-in-out infinite;
+}
+.a11y-main-btn:hover {
+  animation-play-state: paused;
+}
+/* Sonar rings — match AI chat button */
+.a11y-main-btn::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: 50%;
+  background: rgba(124,58,237,.3);
+  animation: sonarRing 3s ease-out 0.75s infinite;
+  pointer-events: none;
+}
+.a11y-main-btn::after {
+  content: '';
+  position: absolute; inset: 0; border-radius: 50%;
+  background: rgba(124,58,237,.18);
+  animation: sonarRing 3s ease-out 2.25s infinite;
+  pointer-events: none;
 }
 
 /* Radial option bubbles — stacked at origin, fan out on open */
@@ -2814,14 +2885,29 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
   font-size: .7rem; font-weight: 700; text-transform: uppercase;
   letter-spacing: .08em; color: var(--text-light); margin-bottom: .5rem;
 }
-.a11y-row { display: flex; gap: .5rem; flex-wrap: wrap; }
+.a11y-row { display: flex; gap: .375rem; flex-wrap: wrap; }
 .a11y-toggle-btn {
-  flex: 1; min-width: 80px; padding: .4rem .75rem; border-radius: var(--radius-sm);
-  border: 2px solid var(--border); background: none; font-size: .78rem; font-weight: 600;
-  cursor: pointer; transition: all .2s; color: var(--text); text-align: center;
+  flex: 1 1 auto; min-width: 0; max-width: 50%;
+  padding: .375rem .5rem; border-radius: var(--radius-sm);
+  border: 2px solid var(--border); background: none;
+  font-size: .73rem; font-weight: 600; line-height: 1.25;
+  cursor: pointer; transition: all .2s; color: var(--text);
+  text-align: center; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
 }
 .a11y-toggle-btn:hover { border-color: var(--primary); color: var(--primary); }
 .a11y-toggle-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+/* Save Options button */
+.a11y-save-btn {
+  width: 100%; padding: .6rem 1rem; margin-top: .75rem;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff; border: none; border-radius: var(--radius-sm);
+  font-size: .875rem; font-weight: 700; cursor: pointer;
+  box-shadow: 0 4px 14px rgba(124,58,237,.3);
+  transition: opacity .15s, transform .15s;
+}
+.a11y-save-btn:hover { opacity: .92; transform: translateY(-1px); }
 .a11y-size-row { display: flex; align-items: center; gap: .625rem; }
 .a11y-size-btn {
   width: 36px; height: 36px; border-radius: var(--radius-sm);
@@ -3008,4 +3094,7 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
 
   /* Stat grid: 1 column on very small */
   .stat-grid { grid-template-columns: 1fr !important; }
+
+  /* Charts double grid: force single column (belt + suspenders) */
+  .charts-double-grid { grid-template-columns: 1fr !important; }
 }

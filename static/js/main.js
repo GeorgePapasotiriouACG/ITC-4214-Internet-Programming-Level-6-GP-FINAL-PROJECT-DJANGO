@@ -2354,7 +2354,8 @@ function initAccessibilityHub() {
   mainBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleHub(); });
 
   document.addEventListener('click', e => {
-    if (!hub.contains(e.target)) {
+    const inPanel = panelOverlay?.contains(e.target);
+    if (!hub.contains(e.target) && !inPanel) {
       hub.classList.remove('open');
       mainBtn.setAttribute('aria-expanded', 'false');
       options?.setAttribute('aria-hidden', 'true');
@@ -2378,6 +2379,11 @@ function initAccessibilityHub() {
 
   panelOverlay?.addEventListener('click', e => {
     if (e.target === panelOverlay) closePanelOverlay();
+  });
+
+  // Save & Close button — closes the panel, keeps settings
+  document.getElementById('a11y-save-options')?.addEventListener('click', () => {
+    closePanelOverlay();
   });
 
   // Sub-option buttons in the radial menu
