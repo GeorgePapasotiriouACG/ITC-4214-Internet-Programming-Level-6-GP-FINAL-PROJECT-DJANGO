@@ -117,6 +117,9 @@ python manage.py runserver
 
 pip install redis              # For Redis Script
 python redis_attack_demo.py --host localhost --port 6379
+
+# To deploy on Render, use docker command: bash start.sh
+Render Link: https://itc-4214-internet-programming-level-6-gp.onrender.com/
 ```
 
 
