@@ -29,7 +29,6 @@ urllib3>=2.0,<3                 # HTTP client (requests dependency)
 # gunicorn replaces the Django dev server for production deployments.
 # Usage: gunicorn eshop.wsgi --workers 3 --bind 0.0.0.0:8000
 gunicorn>=21.2,<22
-uvicorn[standard]>=0.23,<1      # Needed for UvicornWorker / ASGI support
 
 # ── Static File Serving ───────────────────────────────────────────────────────
 # WhiteNoise serves compressed, cache-busted static files directly from Django.
@@ -46,7 +45,7 @@ dj-database-url>=2.2,<3
 # Comment out if you're only using SQLite locally.
 psycopg2-binary>=2.9,<3
 
-# ── Error Monitoring ─────────────────────────────────────────────────────────
+# ── Error Monitoring ──────────────────────────────────────────────────────────
 # Sentry captures unhandled exceptions and performance traces in production.
 # Set SENTRY_DSN in your .env to activate. Free tier covers most projects.
 sentry-sdk>=2.0,<3
@@ -64,7 +63,7 @@ sentry-sdk>=2.0,<3
 # "Nikee" → "Nike", "headphons" → "headphones". ~30x faster than python-Levenshtein.
 rapidfuzz>=3.0,<4
 
-# ── Two-Factor Authentication ─────────────────────────────────────────────────
+# ── Two-Factor Authentication ──────────────────────────────────────────────────
 # pyotp generates and verifies TOTP codes (Google Authenticator compatible).
 # qrcode[pil] renders the QR code the user scans to set up their authenticator app.
 pyotp>=2.9,<3
@@ -73,6 +72,6 @@ qrcode[pil]>=8.0,<9
 # ── Development / Testing Only ────────────────────────────────────────────────
 # These are NOT needed in production — install separately or use requirements-dev.txt
 # Uncomment to run the test suite locally:
-pytest>=8.0,<9
-pytest-django>=4.8,<5
-django-debug-toolbar>=4.4,<5
+# pytest>=8.0,<9
+# pytest-django>=4.8,<5
+# django-debug-toolbar>=4.4,<5
