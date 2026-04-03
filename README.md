@@ -101,7 +101,7 @@ A full-stack e-commerce platform built with Django and Vanilla JavaScript. Suppo
 git clone https://github.com/your-username/trendmart.git
 cd trendmart
 
-python -m venv venv
+python -m venv venv            # Download latest releashe and run on VS Code with original .env file
 venv\Scripts\activate          # Windows
 # source venv/bin/activate     # Mac / Linux
 
@@ -112,9 +112,13 @@ cp .env.example .env           # fill in SECRET_KEY + OPENROUTER_API_KEY
 pip install django-debug-toolbar
 pip install whitenoise
 
-python manage.py migrate
+python manage.py migrate  
 python manage.py runserver
+
+pip install redis              # For Redis Script
+python redis_attack_demo.py --host localhost --port 6379
 ```
+
 
 Open **http://127.0.0.1:8000**
 
