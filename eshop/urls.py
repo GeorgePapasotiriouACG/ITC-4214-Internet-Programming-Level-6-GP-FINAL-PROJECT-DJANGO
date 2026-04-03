@@ -45,15 +45,12 @@ urlpatterns = [
 ]
 
 # ── Media file serving ────────────────────────────────────────────────────────
-# In development (DEBUG=True): Django serves uploaded images from /media/.
-# In production (DEBUG=False): This block is skipped. Instead:
-#   Option A — Nginx:  location /media/ { alias /path/to/media/; }
-#   Option B — AWS S3: Use django-storages + boto3, set MEDIA_URL to S3 bucket URL
-#   Option C — Cloudflare R2: Similar to S3, zero egress costs
-#
 # WhiteNoise does NOT serve /media/ — it only handles /static/.
+# For simple single-server deploys (Render, Railway), Django serves media directly.
+# For high-traffic production, migrate to AWS S3 / Cloudflare R2 with django-storages.
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# Django Debug Toolbar — only in development
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    # Django Debug Toolbar — only in development
     import debug_toolbar
     urlpatterns += [path('__debug__/', include(debug_toolbar.urls))]

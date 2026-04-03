@@ -70,6 +70,18 @@ if not DEBUG and SECRET_KEY.startswith('django-insecure-'):
 _hosts_env = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost' if not DEBUG else '*')
 ALLOWED_HOSTS = [h.strip() for h in _hosts_env.split(',') if h.strip()]
 
+# ── CSRF Trusted Origins (required for Django 4.1+ behind HTTPS proxies) ─────
+# Render / Railway / Heroku all terminate SSL at the load balancer. Without this
+# setting, ALL POST requests (login, checkout, admin) will return 403 Forbidden.
+# Set CSRF_TRUSTED_ORIGINS=https://myapp.onrender.com in the platform dashboard.
+_csrf_origins = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(',') if o.strip()]
+# Fallback: build from ALLOWED_HOSTS if not explicitly set
+if not CSRF_TRUSTED_ORIGINS and not DEBUG:
+    CSRF_TRUSTED_ORIGINS = [
+        f'https://{host}' for host in ALLOWED_HOSTS if host != '*'
+    ]
+
 # ── Installed applications ────────────────────────────────────────────────────
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -317,8 +329,15 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'TrendMart <noreply@tr
 # All of these are safe to enable only when the site is behind HTTPS.
 # They are set conditionally so local HTTP development still works.
 if not DEBUG:
-    # Redirect all HTTP traffic to HTTPS
-    SECURE_SSL_REDIRECT = True
+    # Render/Railway/Heroku terminate SSL at the load balancer and forward
+    # X-Forwarded-Proto. Without this, Django thinks all requests are HTTP
+    # and triggers infinite redirect loops when SECURE_SSL_REDIRECT is True.
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+    # Render already redirects HTTP→HTTPS at the edge, so this is off by default.
+    # Set SECURE_SSL_REDIRECT=True in the dashboard only if your proxy does NOT
+    # handle the redirect automatically.
+    SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'False').lower() in ('true', '1')
 
     # Tell browsers to always use HTTPS for this domain for 1 year
     # Once enabled, this cannot be easily undone — read the docs before deploying
