@@ -109,6 +109,9 @@ pip install django pillow python-dotenv
 
 cp .env.example .env           # fill in SECRET_KEY + OPENROUTER_API_KEY
 
+pip install django-debug-toolbar
+pip install whitenoise
+
 python manage.py migrate
 python manage.py runserver
 ```
