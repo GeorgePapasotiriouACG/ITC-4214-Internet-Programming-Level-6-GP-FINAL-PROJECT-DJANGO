@@ -1,17 +1,7 @@
 #!/usr/bin/env bash
-<<<<<<< HEAD
-
-echo "Running migrations..."
-python manage.py migrate
-
-echo "Collecting static files..."
-python manage.py collectstatic --noinput
-
-echo "Starting server..."
-gunicorn eshop.wsgi:application --bind 0.0.0.0:$PORT --workers 2
-=======
 # =============================================================================
 # TrendMart — Production Start Script
+# Author:  George Papasotiriou
 # Used by: Render Docker deployment (Docker Command: bash start.sh)
 #
 # This script runs on every deploy:
@@ -23,24 +13,24 @@ gunicorn eshop.wsgi:application --bind 0.0.0.0:$PORT --workers 2
 # =============================================================================
 set -e
 
-echo "════════════════════════════════════════════════════════"
+echo "================================================================"
 echo "  TrendMart — Starting production deploy sequence"
-echo "════════════════════════════════════════════════════════"
+echo "================================================================"
 
 echo ""
-echo "▶ Step 1/5: Running database migrations..."
+echo "[1/5] Running database migrations..."
 python manage.py migrate --noinput
 
 echo ""
-echo "▶ Step 2/5: Collecting static files..."
+echo "[2/5] Collecting static files..."
 python manage.py collectstatic --noinput
 
 echo ""
-echo "▶ Step 3/5: Populating sample data (idempotent)..."
+echo "[3/5] Populating sample data (idempotent)..."
 python manage.py populate_data
 
 echo ""
-echo "▶ Step 4/5: Ensuring superuser exists..."
+echo "[4/5] Ensuring superuser exists..."
 python manage.py shell -c "
 from django.contrib.auth.models import User
 import os
@@ -49,13 +39,12 @@ email = os.environ.get('DJANGO_SUPERUSER_EMAIL', 'admin@trendmart.com')
 password = os.environ.get('DJANGO_SUPERUSER_PASSWORD', 'admin123')
 if not User.objects.filter(is_superuser=True).exists():
     User.objects.create_superuser(username=username, email=email, password=password)
-    print(f'  ✓ Superuser \"{username}\" created.')
+    print('Superuser created: ' + username)
 else:
-    print('  ✓ Superuser already exists, skipping.')
+    print('Superuser already exists, skipping.')
 "
 
 echo ""
-echo "▶ Step 5/5: Starting Gunicorn..."
-echo "════════════════════════════════════════════════════════"
+echo "[5/5] Starting Gunicorn..."
+echo "================================================================"
 exec gunicorn eshop.wsgi:application --config gunicorn.conf.py
->>>>>>> 4000c39 (Deployment Tweaks)

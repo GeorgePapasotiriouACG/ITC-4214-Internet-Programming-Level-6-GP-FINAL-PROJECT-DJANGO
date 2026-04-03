@@ -1,0 +1,41 @@
+# =============================================================================
+# render.yaml — Render Blueprint for TrendMart
+# Author:  George Papasotiriou
+#
+# This file defines all Render services (web + database) in one place.
+# Deploy via: Render Dashboard → New → Blueprint → connect your GitHub repo
+# Render will automatically create all services defined here.
+# =============================================================================
+
+databases:
+  - name: trendmart-db
+    plan: free
+    databaseName: trendmart
+    user: trendmart
+
+services:
+  - type: web
+    name: trendmart
+    runtime: docker
+    plan: free
+    dockerCommand: bash start.sh
+    healthCheckPath: /health/
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: trendmart-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        sync: false   # Set manually after deploy (your-app.onrender.com)
+      - key: CSRF_TRUSTED_ORIGINS
+        sync: false   # Set manually (https://your-app.onrender.com)
+      - key: OPENROUTER_API_KEY
+        sync: false   # Set your OpenRouter key manually
+      - key: OPENROUTER_MODEL
+        value: "nvidia/nemotron-3-super-120b-a12b:free"
+      - key: PYTHON_VERSION
+        value: "3.13.0"

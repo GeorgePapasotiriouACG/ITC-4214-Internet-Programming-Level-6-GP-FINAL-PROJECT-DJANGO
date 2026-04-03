@@ -29,6 +29,14 @@ from dotenv import load_dotenv
 # Detect if we are running Django's test runner — used to disable dev-only tools
 _TESTING = 'test' in sys.argv
 
+# Check if debug_toolbar is installed (it's a dev-only dependency, not in production)
+try:
+    import debug_toolbar as _dt  # noqa: F401
+    _HAS_DEBUG_TOOLBAR = True
+    del _dt
+except ImportError:
+    _HAS_DEBUG_TOOLBAR = False
+
 # ── Base directory ────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -94,9 +102,10 @@ INSTALLED_APPS = [
     'django.contrib.sitemaps',
     # TrendMart shop application
     'shop',
-    # Django Debug Toolbar — only active in DEBUG mode, never in production or tests.
+    # Django Debug Toolbar — only active in DEBUG mode when the package is installed.
     # Access via the DjDT panel overlay at the right edge of the browser.
-    *(['debug_toolbar'] if DEBUG and not _TESTING else []),
+    # In production Docker images, debug_toolbar is not installed.
+    *(['debug_toolbar'] if DEBUG and not _TESTING and _HAS_DEBUG_TOOLBAR else []),
     # Django Channels (WebSockets for real-time stock updates).
     # Install: pip install channels channels-redis
     # 'channels',
@@ -132,7 +141,7 @@ MIDDLEWARE = [
     # Django Debug Toolbar — must be early in the stack.
     # Only activates when DEBUG=True and the request IP is in INTERNAL_IPS.
     # Excluded during `manage.py test` runs to prevent namespace errors.
-    *(['debug_toolbar.middleware.DebugToolbarMiddleware'] if DEBUG and not _TESTING else []),
+    *(['debug_toolbar.middleware.DebugToolbarMiddleware'] if DEBUG and not _TESTING and _HAS_DEBUG_TOOLBAR else []),
 
     # TrendMart custom: adds CSP, HSTS, X-Frame-Options, Referrer-Policy, etc.
     'shop.middleware.SecurityHeadersMiddleware',

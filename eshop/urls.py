@@ -50,7 +50,10 @@ urlpatterns = [
 # For high-traffic production, migrate to AWS S3 / Cloudflare R2 with django-storages.
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
-# Django Debug Toolbar — only in development
+# Django Debug Toolbar — only in development (not installed in production Docker image)
 if settings.DEBUG:
-    import debug_toolbar
-    urlpatterns += [path('__debug__/', include(debug_toolbar.urls))]
+    try:
+        import debug_toolbar
+        urlpatterns += [path('__debug__/', include(debug_toolbar.urls))]
+    except ImportError:
+        pass  # debug_toolbar not installed — skip silently
