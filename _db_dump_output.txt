@@ -1,0 +1,60 @@
+﻿=== TABLES ===
+  auth_permission: 168 rows
+  auth_user: 17 rows
+  django_content_type: 42 rows
+  django_migrations: 27 rows
+  django_session: 5 rows
+  shop_brand: 44 rows
+  shop_cart: 3 rows
+  shop_category: 30 rows
+  shop_product: 66 rows
+  shop_productrating: 176 rows
+  shop_productvariant: 119 rows
+  shop_retailerprofile: 2 rows
+  shop_userprofile: 17 rows
+  shop_viewedproduct: 1 rows
+  sqlite_sequence: 26 rows
+
+=== USERS (auth_user) ===
+  [1] admin | admin@trendmart.com |   | staff=1 super=1
+  [2] customer1 | customer1@trendmart.com | Alice Johnson | staff=0 super=0
+  [3] customer2 | customer2@trendmart.com | Bob Smith | staff=0 super=0
+  [4] retailer1 | retailer1@trendmart.com | Maria Garcia | staff=0 super=0
+  [5] retailer2 | retailer2@trendmart.com | James Wilson | staff=0 super=0
+  [6] alex_shoppr | alex.thompson@example.com | Alex Thompson | staff=0 super=0
+  [7] sarah_buys | sarah.m@example.com | Sarah Mitchell | staff=0 super=0
+  [8] mike_reviews | mike.j@example.com | Mike Johnson | staff=0 super=0
+  [9] emma_deals | emma.w@example.com | Emma Williams | staff=0 super=0
+  [10] james_shops | james.b@example.com | James Brown | staff=0 super=0
+  [11] olivia_buys | olivia.d@example.com | Olivia Davis | staff=0 super=0
+  [12] ryan_feedback | ryan.w@example.com | Ryan Wilson | staff=0 super=0
+  [13] sophie_store | sophie.t@example.com | Sophie Taylor | staff=0 super=0
+  [14] chris_rates | chris.a@example.com | Chris Anderson | staff=0 super=0
+  [15] laura_reviews | laura.m@example.com | Laura Martinez | staff=0 super=0
+  [16] tom_shopper | tom.g@example.com | Tom Garcia | staff=0 super=0
+  [17] nina_buys | nina.l@example.com | Nina Lee | staff=0 super=0
+
+=== USER PROFILES (shop_userprofile) ===
+  user_id=1 role=admin phone= city= country=
+  user_id=2 role=customer phone=+1-555-0100 city=New York country=United States
+  user_id=3 role=customer phone=+1-555-0100 city=New York country=United States
+  user_id=4 role=retailer phone=+1-555-0200 city=San Francisco country=United States
+  user_id=5 role=retailer phone=+1-555-0200 city=San Francisco country=United States
+  user_id=6 role=customer phone= city= country=
+  user_id=7 role=customer phone= city= country=
+  user_id=8 role=customer phone= city= country=
+  user_id=9 role=customer phone= city= country=
+  user_id=10 role=customer phone= city= country=
+  user_id=11 role=customer phone= city= country=
+  user_id=12 role=customer phone= city= country=
+  user_id=13 role=customer phone= city= country=
+  user_id=14 role=customer phone= city= country=
+  user_id=15 role=customer phone= city= country=
+  user_id=16 role=customer phone= city= country=
+  user_id=17 role=customer phone= city= country=
+
+=== RETAILER PROFILES (shop_retailerprofile) ===
+  user_id=4 biz=TechGadgetPro approved=1
+  user_id=5 biz=FashionForward approved=1
+
+=== CATEGORIES (shop_category) ===
